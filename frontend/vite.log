@@ -1,0 +1,8 @@
+Port 3000 is in use, trying another one...
+Port 3001 is in use, trying another one...
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m14541[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m3002[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.0.205:[1m3002[22m/[39m
+[2m3:11:51 AM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mindex.html[22m

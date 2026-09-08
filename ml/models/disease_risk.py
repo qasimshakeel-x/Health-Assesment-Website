@@ -1,0 +1,142 @@
+"""Disease Risk Prediction Engine — Ensemble of RF + XGBoost + Logistic Regression."""
+import numpy as np
+from typing import Dict
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score, f1_score
+from imblearn.over_sampling import SMOTE
+from ml.models.base import MLModel
+from ml.models.constants import ENSEMBLE_WEIGHTS, RISK_CATEGORIES, DISEASE_RISK_FEATURES
+
+
+class DiseaseRiskEngine(MLModel):
+    """Ensemble model predicting risk for Diabetes, Heart Disease, Hypertension, Obesity."""
+
+    DISEASES = ["diabetes", "heart", "hypertension", "obesity"]
+
+    def __init__(self):
+        super().__init__("disease_risk_ensemble")
+        self.models = {}
+        self.diseases_trained = False
+
+    def _get_ensemble(self):
+        """Return the three base estimators with their weights."""
+        return {
+            "random_forest": RandomForestClassifier(
+                n_estimators=200, max_depth=10, random_state=42, n_jobs=-1
+            ),
+            "xgboost": self._get_xgboost(),
+            "logistic_regression": LogisticRegression(
+                max_iter=1000, random_state=42, solver="lbfgs"
+            ),
+        }
+
+    def _get_xgboost(self):
+        try:
+            from xgboost import XGBClassifier
+            return XGBClassifier(
+                n_estimators=200, max_depth=6, learning_rate=0.1,
+                use_label_encoder=False, eval_metric="logloss",
+                random_state=42, n_jobs=-1
+            )
+        except ImportError:
+            # Fallback to GradientBoosting if xgboost not installed
+            return GradientBoostingClassifier(
+                n_estimators=200, max_depth=6, learning_rate=0.1,
+                random_state=42
+            )
+
+    def train(self, X: np.ndarray, y: np.ndarray) -> Dict[str, float]:
+        """Train ensemble on feature matrix X and binary labels y."""
+        smote = SMOTE(random_state=42)
+        X_resampled, y_resampled = smote.fit_resample(X, y)
+
+        self.models = {}
+        metrics = {}
+
+        for name, model in self._get_ensemble().items():
+            model.fit(X_resampled, y_resampled)
+            self.models[name] = model
+            y_pred_proba = model.predict_proba(X_resampled)[:, 1]
+            metrics[f"{name}_auc"] = roc_auc_score(y_resampled, y_pred_proba) if len(np.unique(y)) > 1 else 0.0
+
+        self.diseases_trained = True
+        return metrics
+
+    def train_all_diseases(self, datasets: Dict[str, tuple]):
+        """Train separate ensemble for each disease. datasets: {disease: (X, y)}."""
+        for disease in self.DISEASES:
+            if disease in datasets:
+                X, y = datasets[disease]
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+                self._train_disease(disease, X_train, y_train, X_test, y_test)
+
+    def _train_disease(self, disease: str, X_train, y_train, X_test, y_test):
+        """Train ensemble for a single disease and evaluate."""
+        smote = SMOTE(random_state=42)
+        X_resampled, y_resampled = smote.fit_resample(X_train, y_train)
+
+        models = {}
+        predictions = []
+
+        for name, model in self._get_ensemble().items():
+            model.fit(X_resampled, y_resampled)
+            models[name] = model
+            proba = model.predict_proba(X_test)[:, 1]
+            predictions.append(ENSEMBLE_WEIGHTS[name] * proba)
+
+        self.models[disease] = models
+
+        # Ensemble probability
+        ensemble_proba = np.sum(predictions, axis=0)
+        metrics = {
+            "auc_roc": roc_auc_score(y_test, ensemble_proba) if len(np.unique(y_test)) > 1 else 0.0,
+            "macro_f1": f1_score(y_test, (ensemble_proba >= 0.5).astype(int), average="macro")
+        }
+        return metrics
+
+    def predict_proba(self, X: np.ndarray) -> Dict[str, Dict]:
+        """Return risk probabilities for all diseases."""
+        if not self.diseases_trained and not self.models:
+            raise RuntimeError("Models not trained or loaded")
+
+        results = {}
+        for disease in self.DISEASES:
+            if disease in self.models:
+                disease_models = self.models[disease]
+                predictions = []
+                for name, model in disease_models.items():
+                    proba = model.predict_proba(X)[:, 1]
+                    predictions.append(ENSEMBLE_WEIGHTS[name] * proba)
+                ensemble_proba = np.sum(predictions, axis=0)[0] * 100
+                results[disease] = {
+                    "risk_percent": round(float(ensemble_proba), 2),
+                    "category": self._get_category(float(ensemble_proba))
+                }
+        return results
+
+    def evaluate(self, X_test: np.ndarray, y_test: np.ndarray) -> Dict[str, float]:
+        return {}  # Handled per-disease in train_all_diseases
+
+    def _get_category(self, risk: float) -> str:
+        for low, high, label in RISK_CATEGORIES:
+            if low <= risk < high:
+                return label
+        return RISK_CATEGORIES[-1][2]
+
+    def save(self, path: str = "ml/models/pkl/disease_ensemble.pkl"):
+        """Save all disease models."""
+        import pickle, os
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as f:
+            pickle.dump(self.models, f)
+        self.is_loaded = True
+
+    def load(self, path: str = "ml/models/pkl/disease_ensemble.pkl"):
+        """Load all disease models."""
+        import pickle
+        with open(path, "rb") as f:
+            self.models = pickle.load(f)
+        self.diseases_trained = True
+        self.is_loaded = True
