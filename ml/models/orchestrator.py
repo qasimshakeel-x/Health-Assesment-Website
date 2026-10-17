@@ -9,7 +9,7 @@ from ml.models.bio_age import BioAgeEngine
 from ml.models.longevity_score import LongevityScoreEngine
 from ml.models.depression import DepressionClassifier
 from ml.models.registry import DISEASE_REGISTRY
-from ml.predict import has_artifact, explain as explain_artifact
+from ml.predict import has_artifact, explain as explain_artifact, tree_explainer
 
 # sklearn joblib ThreadingBackend har predict pe ye harmless warning deta hai (log spam ho
 # jata hai — 1.7MB). Sirf is specific message ko suppress karo — ML inference kuch bhi
@@ -215,7 +215,7 @@ class MLPipelineOrchestrator:
                     tree_model = models[name]
                     break
             if tree_model is not None:
-                explainer = shap.TreeExplainer(tree_model)
+                explainer = tree_explainer(tree_model)
                 shap_vals = explainer.shap_values(row)
             else:
                 lr = models.get("logistic_regression")

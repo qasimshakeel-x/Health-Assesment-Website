@@ -109,6 +109,23 @@ def _positive_shap_values(explainer, x):
     return sv
 
 
+_explainer_cache = {}
+
+
+def tree_explainer(model):
+    """Cached `shap.TreeExplainer` — constructing one walks the entire ensemble, which is the
+    dominant cost when many models are explained in one request (12 diseases). Cached by object
+    id, which is safe because the model lives in `_cache` for the whole process lifetime.
+    """
+    key = id(model)
+    exp = _explainer_cache.get(key)
+    if exp is None:
+        import shap
+        exp = shap.TreeExplainer(model)
+        _explainer_cache[key] = exp
+    return exp
+
+
 def _tree_estimator(art):
     """Pull the fitted XGB (else RF) out of the calibrated imblearn VotingClassifier pipeline."""
     cal = art["model"]
@@ -148,7 +165,7 @@ def explain(name, payload: dict, top_n: int = 5):
     cols = art["numeric"] + art["categorical"]
     row = pd.DataFrame([payload], columns=cols)
     xt = prep.transform(row)
-    sv = _positive_shap_values(shap.TreeExplainer(tree), xt)[0]
+    sv = _positive_shap_values(tree_explainer(tree), xt)[0]
     names = [n.split("__", 1)[-1] for n in prep.get_feature_names_out()]
 
     vals = np.asarray(sv, dtype=float)
