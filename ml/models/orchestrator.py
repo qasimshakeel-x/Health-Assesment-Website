@@ -184,7 +184,13 @@ class MLPipelineOrchestrator:
                 rows = []
                 if has_artifact(disease) and names and len(names) == len(vec):
                     payload = dict(zip(names, [float(v) for v in vec]))
-                    rows = explain_artifact(disease, payload)
+                    try:
+                        rows = explain_artifact(disease, payload)
+                    except Exception:
+                        # Artifact unreadable in this process (e.g. MemoryError on a small-RAM
+                        # box) — fall through to the legacy path instead of silently dropping
+                        # this disease's explanation.
+                        rows = []
                 if not rows:
                     rows = self._compute_shap_for(disease, engine, list(vec),
                                                   engine.feature_names(disease))

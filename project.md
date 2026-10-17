@@ -135,7 +135,9 @@ Base prefix: `/api/v1` (Swagger: `/docs`)
 - **Leakage clarity**: by-design label-from-features (PHQ-9/GAD-7) ab
   `EXPECTED_LEAKAGE_LABEL_FROM_FEATURES` flag karta hai (alag `SUSPICIOUS_POSSIBLE_LEAKAGE` se)
   + SUMMARY legend.
-- **SHAP**: `shap.TreeExplainer` ab per-model cache hota hai (`ml/predict.py::tree_explainer`).
+- **SHAP**: `shap.TreeExplainer` ab per-model cache hota hai (`ml/predict.py::tree_explainer`);
+  aur agar trained artifact load na ho paye (kam-RAM machine pe `MemoryError`) to explanation
+  legacy pkl path se banta hai — disease silently drop nahi hoti (`ml/models/orchestrator.py`).
 
 ### Security
 
@@ -146,9 +148,13 @@ Base prefix: `/api/v1` (Swagger: `/docs`)
 
 ### Known environment limitation (code bug nahi)
 
-- Is machine pe sirf **3.9 GB RAM** hai. `joblib.load()` trained artifact pe `MemoryError` de sakta
-  hai, jis se engines legacy pkl path pe fall back karte hain (bohat slow). ≥8 GB RAM wali machine
-  pe artifacts normally load hote hain. Documented taake reviewer isse model bug na samjhe.
+- Is machine pe sirf **3.9 GB RAM** hai (aur backend + VS Code + Defender saath chalte hain), to
+  Windows **commit limit** khatam ho jati hai. `joblib.load()` kuch trained artifacts pe
+  `MemoryError` deta hai (observed: `ml/models/diabetes.joblib`, ~1363 chhote array reads ke baad),
+  jis se engines legacy pkl path pe fall back karte hain (bohat slow). File corrupt **nahi** —
+  zlib stream complete hai (`eof=True`) aur koi absurd array size nahi; same ya bade artifacts
+  (`anemia.joblib`) load ho jaate hain. ≥8 GB RAM wali machine pe sab artifacts normally load hote
+  hain. Joblib artifacts gitignored hain, isliye fresh clone pe retrain hone se ye issue nahi aata.
 
 ---
 
