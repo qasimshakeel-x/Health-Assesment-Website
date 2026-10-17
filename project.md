@@ -47,7 +47,7 @@ diet chatbot, SHAP explainability aur PDF health reports. Har chez ki short info
 - **pandas + numpy** — Data loading, cleaning, feature engineering.
 - **matplotlib + Optuna + joblib** — SHAP PNG plots, tuning, aur artifact serialization.
 - **Real public datasets** — NHANES, UCI, Kaggle (diabetes, heart, stroke, ckd, etc.).
-- **Synthetic data flags** — Kuch datasets generated hain; `SYNTHETIC_DATA` flag har jagah report hota.
+- **Real data only (Ground Rule 1)** — Har model real public dataset pe train hota hai; koi synthetic/generated data ya `SYNTHETIC_DATA` flag nahi. (`burnout` ka koi real app-aligned dataset nahi, isliye rule-based `score_burnout()` serve hota hai — ML model nahi.)
 - **ml/predict.py** — Served artifacts ka single entry point: `predict_risk` + `explain` (SHAP).
 
 ## 3. Backend (FastAPI)
@@ -97,12 +97,13 @@ Base prefix: `/api/v1` (Swagger: `/docs`)
 
 ## 6. APIs — External (Third-party integrations)
 
-- **Groq API** — `api.groq.com` chat completions; diet chatbot ka primary LLM (gpt-oss-120b).
-- **Anthropic Claude API** — `api.anthropic.com` messages; Groq fail hone pe fallback LLM.
-- **API Ninjas — Nutrition** — Food ka calories/macros lookup, chatbot nuCtrition queries ke liye.
+- **OpenAI API** — `api.openai.com` chat completions; diet chatbot ka primary LLM.
+- **Groq API** — `api.groq.com` chat completions; OpenAI fail/unavailable ho to pehla fallback (gpt-oss-120b).
+- **Anthropic Claude API** — `api.anthropic.com` messages; aakhri fallback LLM.
+- **API Ninjas — Nutrition** — Food ka calories/macros lookup, chatbot nutrition queries ke liye.
 - **API Ninjas — Exercises** — Muscle/type/name se exercises fetch, workout plans ke liye.
 - **Macro Calculator (local)** — Mifflin-St Jeor BMR + TDEE formula, koi external API nahi.
-- **Env keys** — `GROQ_API_KEY`, `ANTHROPIC_API_KEY`, `APININJAS_KEY`; missing ho to fallback chalta hai.
+- **Env keys** — `OPENAI_API_KEY`, `GROQ_API_KEY`, `ANTHROPIC_API_KEY`, `APININJAS_KEY`; missing/401/429 pe agla provider try hota hai.
 
 ## 7. Infra & Deployment
 
@@ -114,6 +115,40 @@ Base prefix: `/api/v1` (Swagger: `/docs`)
 - **.env / .env.example** — Local secrets aur config (DB URL, JWT, API keys) manage karta hai.
 - **ml/data, ml/models, ml/reports** — Datasets, trained artifacts, aur metrics/SHAP reports.
 - **docx.md** — Detailed spec docs (PRD, architecture, API, ML training, deployment, debugging).
+
+## 8. Recent Changes (2026-10-17)
+
+### ML — real-world data only (synthetic pipeline removed)
+
+- **Deleted synthetic code/data**: `ml/data/generate_synthetic.py`, `ml/data/synthetic/*.csv`
+  (2 files), the `burnout` entry in `ml/train_config.py`, aur synthetic-trained
+  `ml/models/burnout.joblib` + uska metrics JSON + model card + SHAP PNG.
+- **Deleted synthetic logic**: `SYNTHETIC_DATA` flag + `"synthetic"` metrics field (`ml/train.py`),
+  synthetic branch + `SYNTHETIC_NOTE` (`ml/report.py`), legend ki `SYNTHETIC_DATA` line, aur
+  16 remaining `*_metrics.json` se stale `synthetic` keys.
+- **`burnout` ab rule-only hai**: koi real, app-aligned dataset nahi (Mendeley columns nominal
+  questionnaire codes hain — questionnaire PDF se verify kiya), isliye app
+  `ScreeningClassifier.score_burnout()` serve karta hai, ML artifact ke bina. Ab **16 ML
+  diseases** (pehle 16 real + 1 synthetic).
+- **Regenerated** `ml/reports/SUMMARY.md` + `ml/reports/REPORT.md` (16 diseases) aur
+  `ml/data/README.md` rewrite (real-data-only policy + burnout rejection evidence).
+- **Leakage clarity**: by-design label-from-features (PHQ-9/GAD-7) ab
+  `EXPECTED_LEAKAGE_LABEL_FROM_FEATURES` flag karta hai (alag `SUSPICIOUS_POSSIBLE_LEAKAGE` se)
+  + SUMMARY legend.
+- **SHAP**: `shap.TreeExplainer` ab per-model cache hota hai (`ml/predict.py::tree_explainer`).
+
+### Security
+
+- **JWT hardening**: production + missing/weak secret → server fail-fast; dev mein weak value
+  warning ke sath chalti hai (`backend/app/middleware/auth.py`).
+- **Security headers** middleware (nosniff, DENY, no-referrer, XSS) + **rate limiting** (slowapi)
+  `/auth/register|login`, `/chat/.../message`, `/predict` pe.
+
+### Known environment limitation (code bug nahi)
+
+- Is machine pe sirf **3.9 GB RAM** hai. `joblib.load()` trained artifact pe `MemoryError` de sakta
+  hai, jis se engines legacy pkl path pe fall back karte hain (bohat slow). ≥8 GB RAM wali machine
+  pe artifacts normally load hote hain. Documented taake reviewer isse model bug na samjhe.
 
 ---
 
