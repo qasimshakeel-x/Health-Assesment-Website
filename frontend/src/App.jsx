@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Navbar from './components/Navbar'
@@ -10,11 +10,22 @@ import Dashboard from './pages/Dashboard'
 import SHAPDashboard from './pages/SHAPDashboard'
 import Simulator from './pages/Simulator'
 import DietChat from './pages/DietChat'
+import Reports from './pages/Reports'
+import Admin from './pages/Admin'
+import NotFound from './pages/NotFound'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return null
   return user ? children : <Navigate to="/login" />
+}
+
+// Role-based guard — admin/manager-only pages (08-FRONTEND-UI-SPEC §rbac).
+function RoleRoute({ roles, children }) {
+  const { user, loading } = useAuth()
+  if (loading) return null
+  if (!user) return <Navigate to="/login" />
+  return roles.includes(user.role) ? children : <Navigate to="/dashboard" />
 }
 
 function PublicRoute({ children }) {
@@ -25,6 +36,8 @@ function PublicRoute({ children }) {
 
 function AppRoutes() {
   const location = useLocation()
+  // Har route change pe page top se start ho (SPA scroll position persist na ho)
+  useEffect(() => { window.scrollTo(0, 0) }, [location.pathname])
   const isAuthPage = ['/login', '/register'].includes(location.pathname)
 
   return (
@@ -50,6 +63,13 @@ function AppRoutes() {
           <Route path="/chat" element={
             <ProtectedRoute><DietChat /></ProtectedRoute>
           } />
+          <Route path="/reports" element={
+            <ProtectedRoute><Reports /></ProtectedRoute>
+          } />
+          <Route path="/admin" element={
+            <RoleRoute roles={['admin', 'manager']}><Admin /></RoleRoute>
+          } />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
     </>

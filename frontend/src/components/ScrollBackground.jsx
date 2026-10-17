@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useEffect, useState } from 'react';
+import React, { useRef, useMemo, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -176,7 +176,6 @@ function DNAHelix({ scrollProgress }) {
 // ── Floating Wireframe Orbs ──
 function FloatingOrbs({ scrollProgress }) {
   const groupRef = useRef();
-  const orbRefs = useRef([]);
 
   const orbs = useMemo(() => {
     return Array.from({ length: 12 }, (_, i) => ({
@@ -213,7 +212,7 @@ function FloatingOrbs({ scrollProgress }) {
   return (
     <group ref={groupRef}>
       {orbs.map((orb, i) => (
-        <mesh key={i} position={orb.position} scale={orb.scale} ref={(el) => (orbRefs.current[i] = el)}>
+        <mesh key={i} position={orb.position} scale={orb.scale}>
           <icosahedronGeometry args={[1, 1]} />
           <meshBasicMaterial
             color={i % 3 === 0 ? '#2E7D32' : i % 3 === 1 ? '#66BB6A' : '#81C784'}
@@ -225,11 +224,6 @@ function FloatingOrbs({ scrollProgress }) {
       ))}
     </group>
   );
-}
-
-// ── No camera zoom — camera stays fixed ──
-function StaticCamera() {
-  return null;
 }
 
 // ── Main Export ──
@@ -259,7 +253,6 @@ export default function ScrollBackground({ enabled = true }) {
       >
         <color attach="background" args={['#0a0f1a']} />
         <ambientLight intensity={0.5} />
-        <StaticCamera />
         <Particles count={250} scrollProgress={scrollProgress} />
         <DNAHelix scrollProgress={scrollProgress} />
         <FloatingOrbs scrollProgress={scrollProgress} />

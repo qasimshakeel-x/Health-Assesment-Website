@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { simulateFuture } from '../services/api';
-import { FiArrowLeft, FiPlay } from 'react-icons/fi';
+import { FaArrowLeft, FaArrowRight, FaPlay, FaCheck, FaSmoking } from 'react-icons/fa6';
 
 function SliderInput({ label, value, onChange, min, max, step = 1, unit = '', suffix = '' }) {
   const percentage = ((value - min) / (max - min)) * 100;
@@ -48,7 +48,7 @@ function ComparisonCard({ title, current, improved, unit = '', lowerBetter = tru
           <p className="text-xl font-bold text-white">{typeof current === 'number' ? current.toFixed(1) : current}{unit}</p>
           <p className="text-xs text-gray-500">Current</p>
         </div>
-        <div className="text-gray-600">→</div>
+        <div className="text-gray-600"><FaArrowRight size={16} aria-hidden="true" /></div>
         <div>
           <p className={`text-xl font-bold ${isBetter ? 'text-green-400' : diff === 0 ? 'text-gray-400' : 'text-red-400'}`}>
             {typeof improved_ === 'number' ? improved_.toFixed(1) : improved_}{unit}
@@ -65,10 +65,43 @@ function ComparisonCard({ title, current, improved, unit = '', lowerBetter = tru
   );
 }
 
+// WS-5: 16-disease comparison rows (current → projected), backend `current.diseases` se
+function DiseaseComparisonRow({ label, current, improved }) {
+  const base = current ?? 0;
+  const proj = improved ?? base;
+  const diff = proj - base;
+  const isBetter = diff < 0;
+  return (
+    <div className="flex items-center justify-between py-2 border-b border-white/5 last:border-b-0">
+      <span className="text-sm text-gray-300 truncate pr-3">{label}</span>
+      <span className="flex items-center gap-2 shrink-0">
+        <span className="text-xs text-gray-500 w-11 text-right">{Math.round(base)}%</span>
+        <span className="text-gray-600"><FaArrowRight size={12} aria-hidden="true" /></span>
+        <span
+          className={`text-xs font-semibold w-11 text-right ${
+            diff === 0 ? 'text-gray-400' : isBetter ? 'text-green-400' : 'text-red-400'
+          }`}
+        >
+          {Math.round(proj)}%
+        </span>
+        <span
+          className={`text-[10px] w-12 text-right ${
+            diff === 0 ? 'text-gray-600' : isBetter ? 'text-green-500/80' : 'text-red-400/80'
+          }`}
+        >
+          {diff === 0 ? '—' : `${diff > 0 ? '+' : ''}${Math.round(diff)}`}
+        </span>
+      </span>
+    </div>
+  );
+}
+
 export default function Simulator() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+  const [isDemo, setIsDemo] = useState(false);
   const [params, setParams] = useState({
     years: 10,
     sleep_hours_delta: 0,
@@ -82,18 +115,30 @@ export default function Simulator() {
 
   const handleSimulate = async () => {
     setLoading(true);
+    setError(null);
+    setIsDemo(false);
     try {
       const res = await simulateFuture(params);
       setResult(res.data);
-    } catch {
-      // Use mock results if backend unavailable
+    } catch (err) {
+      // Backend down → demo estimates clearly label karo; fake results real ke roop mein
+      // dikhana spec ke against hai (08-FRONTEND-UI-SPEC: no misleading states) (BUG-7)
+      const status = err?.response?.status;
+      setError(
+        status
+          ? `Simulation failed (HTTP ${status}). Showing approximate demo estimates.`
+          : 'Backend unavailable. Showing approximate demo estimates only.'
+      );
+      setIsDemo(true);
       setResult({
-        current_scenario: { biological_age: 45, diabetes_risk: 35, heart_risk: 28, longevity_score: 55 },
-        improved_scenario: {
-          biological_age: 45 - params.sleep_hours_delta * 0.5 - params.exercise_level_delta * 1.5 - params.bmi_improvement * 0.3,
-          diabetes_risk: Math.max(5, 35 - params.sleep_hours_delta * 2 - params.exercise_level_delta * 4 - (params.diet_improvement === 'strict' ? 15 : params.diet_improvement === 'moderate' ? 8 : 0)),
-          heart_risk: Math.max(5, 28 - params.sleep_hours_delta * 1.5 - params.exercise_level_delta * 3 - (params.smoking_quit ? 10 : 0)),
-          longevity_score: Math.min(95, 55 + params.sleep_hours_delta * 2 + params.exercise_level_delta * 5 + (params.diet_improvement === 'strict' ? 15 : params.diet_improvement === 'moderate' ? 8 : 0)),
+        // Backend response keys ke saath match: {years, current, improved, comparison}
+        current: { biological_age: 45, diabetes_risk: 35, heart_risk: 28, longevity_score: 55, diseases: [] },
+        improved: {
+          biological_age: Math.max(0, 45 - params.sleep_hours_delta * 0.5 - params.exercise_level_delta * 1.5 - params.bmi_improvement * 0.3),
+          diabetes_risk: Math.max(0, 35 - params.sleep_hours_delta * 2 - params.exercise_level_delta * 4 - (params.diet_improvement === 'strict' ? 15 : params.diet_improvement === 'moderate' ? 8 : 0)),
+          heart_risk: Math.max(0, 28 - params.sleep_hours_delta * 1.5 - params.exercise_level_delta * 3 - (params.smoking_quit ? 10 : 0)),
+          longevity_score: Math.min(100, Math.max(0, 55 + params.sleep_hours_delta * 2 + params.exercise_level_delta * 5 + (params.diet_improvement === 'strict' ? 15 : params.diet_improvement === 'moderate' ? 8 : 0))),
+          diseases: [],
         },
       });
     } finally {
@@ -108,7 +153,7 @@ export default function Simulator() {
           onClick={() => navigate('/dashboard')}
           className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-6"
         >
-          <FiArrowLeft size={18} /> Back to Dashboard
+          <FaArrowLeft size={18} /> Back to Dashboard
         </button>
 
         <h1 className="font-display text-3xl font-bold text-white mb-2">Future Health Simulator</h1>
@@ -178,7 +223,10 @@ export default function Simulator() {
                     : 'bg-surface-50 border border-white/10 text-gray-400'
                 }`}
               >
-                {params.smoking_quit ? '✓ Quit Smoking' : '🚭 Quit Smoking'}
+                <span className="inline-flex items-center justify-center gap-2">
+                  {params.smoking_quit ? <FaCheck size={16} aria-hidden="true" /> : <FaSmoking size={16} aria-hidden="true" />}
+                  Quit Smoking
+                </span>
               </button>
             </div>
 
@@ -191,7 +239,7 @@ export default function Simulator() {
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  <FiPlay size={18} />
+                  <FaPlay size={18} />
                   Run Simulation
                 </>
               )}
@@ -202,38 +250,71 @@ export default function Simulator() {
           <div className="glass p-6">
             <h2 className="text-lg font-semibold text-white mb-5">Projected Results</h2>
 
+            {error && (
+              <div role="alert" className="mb-4 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-yellow-300 text-sm">
+                {error}
+                {isDemo && (
+                  <span className="block mt-1 text-yellow-400/80 text-xs">
+                    Demo estimates only — not calculated from your real health data.
+                  </span>
+                )}
+              </div>
+            )}
+
             {result ? (
               <div className="space-y-4">
                 <ComparisonCard
                   title="Biological Age"
-                  current={result.current_scenario?.biological_age}
-                  improved={result.improved_scenario?.biological_age}
+                  current={result.current?.biological_age}
+                  improved={result.improved?.biological_age}
                   unit=" yrs"
                 />
                 <ComparisonCard
                   title="Diabetes Risk"
-                  current={result.current_scenario?.diabetes_risk}
-                  improved={result.improved_scenario?.diabetes_risk}
+                  current={result.current?.diabetes_risk}
+                  improved={result.improved?.diabetes_risk}
                   unit="%"
                 />
                 <ComparisonCard
                   title="Heart Disease Risk"
-                  current={result.current_scenario?.heart_risk}
-                  improved={result.improved_scenario?.heart_risk}
+                  current={result.current?.heart_risk}
+                  improved={result.improved?.heart_risk}
                   unit="%"
                 />
                 <ComparisonCard
                   title="Longevity Score"
-                  current={result.current_scenario?.longevity_score}
-                  improved={result.improved_scenario?.longevity_score}
+                  current={result.current?.longevity_score}
+                  improved={result.improved?.longevity_score}
                   unit="/100"
                   lowerBetter={false}
                 />
+
+                {/* WS-5: sab disease ka current → projected comparison */}
+                {(result.current?.diseases || []).length > 0 && (
+                  <div className="glass-light p-4">
+                    <p className="text-sm text-gray-300 font-medium mb-2">
+                      All Disease Risks ({result.current.diseases.length})
+                    </p>
+                    <p className="text-xs text-gray-600 mb-3">
+                      {result.years}-year projection with your selected lifestyle changes
+                    </p>
+                    <div>
+                      {result.current.diseases.map((d, i) => (
+                        <DiseaseComparisonRow
+                          key={d.disease_key || i}
+                          label={d.label || d.disease_key}
+                          current={d.risk_percent}
+                          improved={result.improved?.diseases?.[i]?.risk_percent}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-12">
                 <div className="w-16 h-16 rounded-2xl bg-surface-100 flex items-center justify-center mx-auto mb-4">
-                  <FiPlay className="text-gray-600" size={24} />
+                  <FaPlay className="text-gray-600" size={24} />
                 </div>
                 <p className="text-gray-500">Adjust the sliders and run a simulation to see results</p>
               </div>

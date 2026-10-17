@@ -1,7 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getShapExplanations } from '../services/api';
-import { FiArrowLeft, FiInfo } from 'react-icons/fi';
+import { getShapExplanations, getDiseases } from '../services/api';
+import { FaArrowLeft, FaCircleInfo, FaCheck } from 'react-icons/fa6';
+
+// Plain-language translation (08-FRONTEND-UI-SPEC §3 SHAP screen): raw feature names user ko
+// nahi dikhane — "family_diabetes" → "Family history of diabetes"
+const FEATURE_LABELS = {
+  age: 'Age',
+  gender: 'Gender',
+  bmi: 'BMI (body mass index)',
+  sleep_hours: 'Sleep hours per night',
+  exercise_level: 'Exercise level',
+  smoking: 'Smoking',
+  alcohol: 'Alcohol (drinks/week)',
+  family_diabetes: 'Family history of diabetes',
+  family_heart: 'Family history of heart disease',
+  family_hypertension: 'Family history of hypertension',
+  family_cancer: 'Family history of cancer',
+};
+const featureLabel = (name) => FEATURE_LABELS[name] || name;
 
 function ShapBar({ feature, shapValue, direction }) {
   const width = Math.min(Math.abs(shapValue) * 100, 100);
@@ -11,7 +28,7 @@ function ShapBar({ feature, shapValue, direction }) {
   return (
     <div className="mb-3">
       <div className="flex justify-between items-center mb-1">
-        <span className="text-sm text-gray-300">{feature}</span>
+        <span className="text-sm text-gray-300">{featureLabel(feature)}</span>
         <span className="text-xs font-mono" style={{ color }}>
           {shapValue > 0 ? '+' : ''}{shapValue.toFixed(4)}
         </span>
@@ -37,6 +54,18 @@ export default function SHAPDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [diseaseLabels, setDiseaseLabels] = useState({});
+  const [selected, setSelected] = useState(''); // '' = All
+
+  useEffect(() => {
+    getDiseases()
+      .then((res) => {
+        const map = {};
+        (res.data?.diseases || []).forEach((d) => { map[d.disease_key] = d.label; });
+        setDiseaseLabels(map);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     async function fetch() {
@@ -69,9 +98,12 @@ export default function SHAPDashboard() {
     );
   }
 
-  const explanations = data?.explanations || [];
+  const allExplanations = data?.explanations || [];
+  const diseases = [...new Set(allExplanations.map((e) => e.disease).filter(Boolean))];
+  const explanations = selected ? allExplanations.filter((e) => e.disease === selected) : allExplanations;
   const increasing = explanations.filter((e) => e.direction === 'increases_risk').slice(0, 8);
   const decreasing = explanations.filter((e) => e.direction === 'decreases_risk').slice(0, 8);
+  const diseaseLabel = (key) => diseaseLabels[key] || (key ? key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'All Diseases');
 
   return (
     <div className="pt-20 pb-12 px-4 max-w-4xl mx-auto">
@@ -80,7 +112,7 @@ export default function SHAPDashboard() {
           onClick={() => navigate('/dashboard')}
           className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-6"
         >
-          <FiArrowLeft size={18} /> Back to Dashboard
+          <FaArrowLeft size={18} /> Back to Dashboard
         </button>
 
         <h1 className="font-display text-3xl font-bold text-white mb-2">SHAP Explainability</h1>
@@ -90,7 +122,7 @@ export default function SHAPDashboard() {
 
         {/* Info Banner */}
         <div className="glass-light p-4 flex items-start gap-3 mb-6">
-          <FiInfo className="text-primary-300 shrink-0 mt-0.5" size={18} />
+          <FaCircleInfo className="text-primary-300 shrink-0 mt-0.5" size={18} />
           <div className="text-sm text-gray-400">
             <p>
               <strong className="text-gray-300">SHAP (SHapley Additive exPlanations)</strong> shows
@@ -106,7 +138,32 @@ export default function SHAPDashboard() {
             <p className="text-gray-400">No SHAP explanations available for this prediction.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <>
+            {diseases.length > 1 && (
+              <div className="mb-6">
+                <label className="block text-sm text-gray-400 mb-2" htmlFor="shap-disease">
+                  Show explanations for
+                </label>
+                <select
+                  id="shap-disease"
+                  className="w-full md:w-72 glass px-4 py-2 rounded-lg text-gray-200 bg-gray-900/60 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  value={selected}
+                  onChange={(e) => setSelected(e.target.value)}
+                >
+                  <option value="">All diseases</option>
+                  {diseases.map((d) => (
+                    <option key={d} value={d}>{diseaseLabel(d)}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="flex items-center gap-3 mb-4">
+              <h2 className="text-xl font-semibold text-white">{diseaseLabel(selected)}</h2>
+              <span className="text-xs text-gray-500">{explanations.length} factors</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Risk Increasing Factors */}
             {increasing.length > 0 && (
               <div className="glass p-6">
@@ -142,7 +199,8 @@ export default function SHAPDashboard() {
                 ))}
               </div>
             )}
-          </div>
+            </div>
+          </>
         )}
 
         {/* Top 5 Plain Language Summary */}
@@ -154,7 +212,7 @@ export default function SHAPDashboard() {
                 <span className="text-red-400 font-bold text-lg">{i + 1}</span>
                 <div>
                   <p className="text-sm text-gray-300">
-                    <strong className="text-white">{item.feature}</strong> is increasing your overall risk.
+                    <strong className="text-white">{featureLabel(item.feature)}</strong> is increasing your overall risk.
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
                     SHAP value: +{item.shap_value.toFixed(4)}
@@ -164,10 +222,10 @@ export default function SHAPDashboard() {
             ))}
             {decreasing.slice(0, 3).map((item, i) => (
               <div key={`dec-${i}`} className="flex items-start gap-3 glass-light p-3">
-                <span className="text-green-400 font-bold text-lg">✓</span>
+                <span className="text-green-400 text-lg shrink-0"><FaCheck size={18} aria-hidden="true" /></span>
                 <div>
                   <p className="text-sm text-gray-300">
-                    <strong className="text-white">{item.feature}</strong> is helping lower your risk.
+                    <strong className="text-white">{featureLabel(item.feature)}</strong> is helping lower your risk.
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
                     SHAP value: {item.shap_value.toFixed(4)}

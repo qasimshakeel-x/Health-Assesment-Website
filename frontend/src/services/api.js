@@ -54,10 +54,18 @@ api.interceptors.response.use(
 export const register = (data) => api.post('/auth/register', data);
 export const login = (data) => api.post('/auth/login', data);
 export const getMe = () => api.get('/auth/me');
+export const logout = () => api.post('/auth/logout');
 
 // ─── Prediction ───
 export const submitPrediction = (data) => api.post('/predict', data);
 export const getLatestPrediction = (userId) => api.get(`/predict/${userId}/latest`);
+export const getPredictionHistory = (userId) => api.get(`/predict/${userId}/history`);
+
+// ─── Diseases catalog ───
+export const getDiseases = () => api.get('/diseases');
+// WS-4: dynamic screening sections — question set per screener (05-API-SPEC §3)
+export const getScreeningQuestions = (screeningKey) =>
+  api.get(`/screenings/${screeningKey}/questions`);
 
 // ─── SHAP ───
 export const getShapExplanations = (predictionId) => api.get(`/shap/${predictionId}`);
@@ -66,22 +74,23 @@ export const getShapExplanations = (predictionId) => api.get(`/shap/${prediction
 export const simulateFuture = (data) => api.post('/simulate', data);
 
 // ─── Chat ───
-export const sendChatMessage = (userId, message) =>
-  api.post(`/chat/${userId}/message`, { message });
-export const getChatHistory = (userId) => api.get(`/chat/${userId}/history`);
+export const sendChatMessage = (userId, message, sessionId) =>
+  api.post(`/chat/${userId}/message`, { message, session_id: sessionId });
 
 // ─── Admin ───
 export const adminListUsers = () => api.get('/admin/users');
 export const adminGetUser = (userId) => api.get(`/admin/users/${userId}`);
 export const adminCreateUser = (data) => api.post('/admin/users', data);
-export const adminUpdateUser = (userId, data) => api.put(`/admin/users/${userId}`, data);
 export const adminUpdateRole = (userId, role) => api.put(`/admin/users/${userId}/role`, { role });
 export const adminDeleteUser = (userId) => api.delete(`/admin/users/${userId}`);
 export const adminGetStats = () => api.get('/admin/users/stats');
+export const adminRetrainModels = () => api.post('/admin/models/retrain');
+export const adminGetActions = (limit = 100) => api.get('/admin/actions', { params: { limit } });
 
 // ─── Reports ───
 export const generateReport = (userId) => api.post(`/reports/${userId}/generate`);
 export const getReportStatus = (reportId) => api.get(`/reports/${reportId}/status`);
+export const listReports = (userId) => api.get(`/reports/${userId}/list`);
 export const downloadReport = (reportId) =>
   api.get(`/reports/${reportId}/download`, { responseType: 'blob' });
 

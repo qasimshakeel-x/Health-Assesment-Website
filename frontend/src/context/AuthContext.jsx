@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getMe } from '../services/api';
+import { getMe, logout as logoutApi } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -16,6 +16,27 @@ export function AuthProvider({ children }) {
       } catch {
         localStorage.removeItem('user');
       }
+      // Boot pe server se validate karo — sirf localStorage pe trust karne se stale
+      // user/role chalta rehta tha (getMe pehle se import tha, kabhi call hi nahi hota tha) (BUG-8)
+      getMe()
+        .then((res) => {
+          const fresh = res.data?.user || res.data;
+          if (fresh && typeof fresh === 'object') {
+            localStorage.setItem('user', JSON.stringify(fresh));
+            setUser(fresh);
+          }
+        })
+        .catch((err) => {
+          // 401/403 = refresh interceptor already ek baar retry kar chuka → session khatam
+          const status = err?.response?.status;
+          if (status === 401 || status === 403) {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('user');
+            setUser(null);
+          }
+          // Network error pe cached user rehne do (backend down ho sakta hai)
+        });
     }
     setLoading(false);
   }, []);
@@ -28,6 +49,8 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
+    // Server-side logout call (best-effort — JWT stateless hai, failure pe bhi local clear)
+    logoutApi().catch(() => {});
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
