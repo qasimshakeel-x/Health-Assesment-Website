@@ -1,7 +1,7 @@
 {
   "disease_key": "gad7",
   "trained_at": "2026-10-14T19:12:14.005472Z",
-  "dataset": "Real GAD-7 questionnaire (776 rows, Figshare CC BY) \u2014 label = GAD-7 total >=10 (moderate+). Label is derived from the items BY DESIGN (mirrors the clinical rule the app uses), so a SUSPICIOUS_POSSIBLE_LEAKAGE flag is expected.",
+  "dataset": "Real GAD-7 questionnaire (776 rows, Figshare CC BY) \u2014 label = GAD-7 total >=10 (moderate+). Label is derived from the items BY DESIGN (mirrors the clinical rule the app uses), so an EXPECTED_LEAKAGE_LABEL_FROM_FEATURES flag is expected.",
   "dataset_version": "v1",
   "n_samples": 776,
   "metrics": {
@@ -22,12 +22,12 @@
   "threshold": 0.1555,
   "threshold_met": true,
   "flags": [
-    "SUSPICIOUS_POSSIBLE_LEAKAGE"
+    "EXPECTED_LEAKAGE_LABEL_FROM_FEATURES"
   ],
   "known_limitations": [
     "App-aligned projection of a real public dataset (ml/data/README.md) \u2014 not a local clinical sample; revalidate on local data before clinical use",
     "All app features are present in the source dataset",
     "Screening and awareness tool only, not a diagnostic device",
-    "SUSPICIOUS_POSSIBLE_LEAKAGE: test AUC > 0.97 \u2014 investigate before trusting"
+    "EXPECTED_LEAKAGE_LABEL_FROM_FEATURES: the label is derived from these very features by design (it mirrors the app's clinical scoring rule), so the high AUC is expected and the model is mathematically equivalent to the rule \u2014 it adds no new signal"
   ]
 }

@@ -246,7 +246,11 @@ def train(name, trials=0, shap=True):
     test_auc = float(roc_auc_score(y_te, proba))
     macro_f1 = float(f1_score(y_te, pred, average="macro"))
     if test_auc > 0.97:
-        flags.append("SUSPICIOUS_POSSIBLE_LEAKAGE")
+        # Label derived from the features BY DESIGN (gad7/depression PHQ-9/GAD-7 items -> sum>=10)
+        # mirrors the clinical rule the app already implements — not accidental leakage, so it is
+        # flagged distinctly from a genuine leak and reported as an expected property.
+        flags.append("EXPECTED_LEAKAGE_LABEL_FROM_FEATURES" if cfg.get("label_from_features")
+                     else "SUSPICIOUS_POSSIBLE_LEAKAGE")
     status = "PASS" if (test_auc >= TARGET_AUC and macro_f1 >= TARGET_MACRO_F1) else "BELOW_TARGET"
 
     metrics = {
@@ -306,7 +310,11 @@ def train(name, trials=0, shap=True):
              "cannot use them (LOW_FEATURE_MODEL)") if missing_features else
             "All app features are present in the source dataset",
             "Screening and awareness tool only, not a diagnostic device",
-        ] + (["SUSPICIOUS_POSSIBLE_LEAKAGE: test AUC > 0.97 — investigate before trusting"]
+        ] + (["EXPECTED_LEAKAGE_LABEL_FROM_FEATURES: the label is derived from these very features "
+              "by design (it mirrors the app's clinical scoring rule), so the high AUC is expected "
+              "and the model is mathematically equivalent to the rule — it adds no new signal"]
+             if "EXPECTED_LEAKAGE_LABEL_FROM_FEATURES" in flags else [])
+          + (["SUSPICIOUS_POSSIBLE_LEAKAGE: test AUC > 0.97 — investigate before trusting"]
              if "SUSPICIOUS_POSSIBLE_LEAKAGE" in flags else []),
     }
     (CARD_DIR / f"{name}.json").write_text(json.dumps(card, indent=2), encoding="utf-8")
@@ -324,6 +332,21 @@ def write_summary(all_metrics):
         lines.append(f"| {m['disease']} | {m['rows']} | {m['cv_auc_mean']}±{m['cv_auc_std']} | "
                      f"{m['test_auc']} | {m['test_recall']} | {m['test_macro_f1']} | "
                      f"{m['brier_score']} | {m['status']} | {', '.join(m['flags']) or '-'} |")
+    lines += [
+        "", "## Legend", "",
+        f"- **PASS** = test AUC >= {TARGET_AUC} AND macro F1 >= {TARGET_MACRO_F1}",
+        "- **BELOW_TARGET** = at least one target missed (mostly data-limited — see flags below)",
+        "- **LOW_FEATURE_MODEL** = the source dataset does not collect some app features, so the "
+        "model cannot use them (honest limitation, not a bug)",
+        "- **SMALL_DATASET** = fewer than 500 rows",
+        "- **HEAVY_IMBALANCE** = positive rate below 10% or above 90%",
+        "- **SYNTHETIC_DATA** = generated data — NOT real-world evidence",
+        "- **EXPECTED_LEAKAGE_LABEL_FROM_FEATURES** = the label is derived from the features by "
+        "design (mirrors the app's clinical rule for the PHQ-9/GAD-7 screeners), so the near-perfect "
+        "AUC is expected and the ML model adds no new signal over the rule",
+        "- **SUSPICIOUS_POSSIBLE_LEAKAGE** = test AUC > 0.97 without a documented reason — "
+        "investigate before trusting",
+    ]
     # encoding pinned: the table carries "±" and the console locale on Windows is cp1252
     (REPORTS_DIR / "SUMMARY.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 

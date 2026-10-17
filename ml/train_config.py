@@ -167,9 +167,11 @@ DISEASES = {
         "numeric": ["gad1", "gad2", "gad3", "gad4", "gad5", "gad6", "gad7"],
         "categorical": [],
         "zero_is_missing": [],
+        "label_from_features": True,
         "source_note": "Real GAD-7 questionnaire (776 rows, Figshare CC BY) — label = GAD-7 total "
                        ">=10 (moderate+). Label is derived from the items BY DESIGN (mirrors the "
-                       "clinical rule the app uses), so a SUSPICIOUS_POSSIBLE_LEAKAGE flag is expected.",
+                       "clinical rule the app uses), so an EXPECTED_LEAKAGE_LABEL_FROM_FEATURES "
+                       "flag is expected.",
     },
     "sleep_apnea": {
         "data": "ml/data/real/sleep_apnea.csv",
@@ -203,9 +205,10 @@ DISEASES = {
         "numeric": ["phq1", "phq2", "phq3", "phq4", "phq5", "phq6", "phq7", "phq8", "phq9"],
         "categorical": [],
         "zero_is_missing": [],
+        "label_from_features": True,
         "source_note": "Real PHQ-9 questionnaire (776 rows, Figshare CC BY) — label = PHQ-9 total "
                        ">=10 (moderate+). Label derived from the items BY DESIGN (mirrors the app's "
-                       "PHQ-9 severity rule); a SUSPICIOUS_POSSIBLE_LEAKAGE flag is expected.",
+                       "PHQ-9 severity rule); an EXPECTED_LEAKAGE_LABEL_FROM_FEATURES flag is expected.",
     },
 
     # ── colorectal — REAL (found after the first search pass; see ml/data/README.md) ────────

@@ -1,6 +1,6 @@
 {
   "disease": "depression",
-  "dataset": "Real PHQ-9 questionnaire (776 rows, Figshare CC BY) \u2014 label = PHQ-9 total >=10 (moderate+). Label derived from the items BY DESIGN (mirrors the app's PHQ-9 severity rule); a SUSPICIOUS_POSSIBLE_LEAKAGE flag is expected.",
+  "dataset": "Real PHQ-9 questionnaire (776 rows, Figshare CC BY) \u2014 label = PHQ-9 total >=10 (moderate+). Label derived from the items BY DESIGN (mirrors the app's PHQ-9 severity rule); an EXPECTED_LEAKAGE_LABEL_FROM_FEATURES flag is expected.",
   "rows": 776,
   "positive_rate": 0.2474,
   "features": [
@@ -28,7 +28,7 @@
   },
   "status": "PASS",
   "flags": [
-    "SUSPICIOUS_POSSIBLE_LEAKAGE"
+    "EXPECTED_LEAKAGE_LABEL_FROM_FEATURES"
   ],
   "synthetic": false,
   "missing_features": [],

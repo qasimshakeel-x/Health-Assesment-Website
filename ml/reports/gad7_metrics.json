@@ -1,6 +1,6 @@
 {
   "disease": "gad7",
-  "dataset": "Real GAD-7 questionnaire (776 rows, Figshare CC BY) \u2014 label = GAD-7 total >=10 (moderate+). Label is derived from the items BY DESIGN (mirrors the clinical rule the app uses), so a SUSPICIOUS_POSSIBLE_LEAKAGE flag is expected.",
+  "dataset": "Real GAD-7 questionnaire (776 rows, Figshare CC BY) \u2014 label = GAD-7 total >=10 (moderate+). Label is derived from the items BY DESIGN (mirrors the clinical rule the app uses), so an EXPECTED_LEAKAGE_LABEL_FROM_FEATURES flag is expected.",
   "rows": 776,
   "positive_rate": 0.2423,
   "features": [
@@ -26,7 +26,7 @@
   },
   "status": "PASS",
   "flags": [
-    "SUSPICIOUS_POSSIBLE_LEAKAGE"
+    "EXPECTED_LEAKAGE_LABEL_FROM_FEATURES"
   ],
   "synthetic": false,
   "missing_features": [],
