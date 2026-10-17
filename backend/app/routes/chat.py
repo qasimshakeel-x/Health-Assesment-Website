@@ -4,11 +4,12 @@ import re
 import uuid
 import random
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 from backend.app.models.database import get_db, User, PredictionResult, UserProfile
 from backend.app.schemas.user import ChatMessage, ChatResponse
 from backend.app.middleware.auth import get_current_user
+from backend.app.limiter import limiter
 from backend.app.services.health_api import (
     search_nutrition, search_exercises, calculate_macros,
     format_nutrition, format_nutrition_comparison, format_exercises,
@@ -1047,7 +1048,10 @@ def _llm_response(message: str, prediction: PredictionResult, profile: UserProfi
 # ══════════════════════════════════════════════════════════════
 
 @router.post("/{user_id}/message")
+@limiter.limit("30/minute")
 async def send_message(
+    request: Request,
+    response: Response,
     user_id: int,
     data: ChatMessage,
     current_user: User = Depends(get_current_user),

@@ -1,5 +1,5 @@
 """Auth routes — register, login, token refresh with role support."""
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.orm import Session
 from backend.app.models.database import get_db, User
 from backend.app.schemas.user import UserRegister, UserLogin, TokenResponse, TokenRefresh, UserInfo
@@ -7,6 +7,7 @@ from backend.app.middleware.auth import (
     hash_password, verify_password, create_access_token,
     create_refresh_token, decode_token, get_current_user
 )
+from backend.app.limiter import limiter
 
 router = APIRouter()
 
@@ -19,7 +20,8 @@ def _user_info(user: User) -> UserInfo:
 
 
 @router.post("/register", response_model=TokenResponse)
-def register(data: UserRegister, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def register(request: Request, response: Response, data: UserRegister, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == data.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -44,7 +46,8 @@ def register(data: UserRegister, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(data: UserLogin, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def login(request: Request, response: Response, data: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
     if not user or not verify_password(data.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")

@@ -1,5 +1,7 @@
 """JWT Authentication middleware — python-jose, HS256 with role-based access."""
 import os
+import secrets
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
 from functools import wraps
@@ -10,7 +12,39 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from backend.app.models.database import get_db, User
 
-JWT_SECRET = os.getenv("JWT_SECRET", "change-me-in-production")
+logger = logging.getLogger(__name__)
+
+_ENVIRONMENT = (os.getenv("ENVIRONMENT") or os.getenv("ENV") or "development").strip().lower()
+_WEAK_SECRETS = {"", "change-me-in-production", "change-me", "changeme", "secret", "test-secret"}
+
+
+def _resolve_jwt_secret() -> str:
+    """JWT secret resolve — production mein strong secret ZAROORI (fail-fast), dev mein warn.
+
+    Pehle default "change-me-in-production" chup-chaap use hota tha, jis se koi bhi
+    token forge kar sakta tha. Ab:
+      - production/prod: missing/weak secret → RuntimeError (server boot hi fail)
+      - development: weak/missing → warning (sessions stable rakhne ke liye value rakhte hain)
+    """
+    secret = os.getenv("JWT_SECRET", "").strip()
+    is_strong = bool(secret) and secret not in _WEAK_SECRETS and len(secret) >= 32
+    if is_strong:
+        return secret
+    if _ENVIRONMENT in ("production", "prod"):
+        raise RuntimeError(
+            "JWT_SECRET missing/weak. Production requires a strong (>=32 char) secret. "
+            "Generate one: python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+        )
+    if secret:
+        logger.warning(
+            "JWT_SECRET is weak (dev only). Set a strong secret before production."
+        )
+        return secret
+    logger.warning("JWT_SECRET not set — generating an ephemeral dev secret (tokens reset on restart).")
+    return secrets.token_urlsafe(48)
+
+
+JWT_SECRET = _resolve_jwt_secret()
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24
 REFRESH_TOKEN_EXPIRE_DAYS = 7

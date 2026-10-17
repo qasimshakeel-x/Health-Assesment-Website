@@ -21,7 +21,9 @@ if load_dotenv:
 os.environ.setdefault("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/longevity_platform")
 os.environ.setdefault("REDIS_HOST", "localhost")
 os.environ.setdefault("REDIS_PORT", "6379")
-os.environ.setdefault("JWT_SECRET", "change-me-in-production")
+# NOTE: JWT_SECRET ka setdefault JAAN-BOOJH kar nahi rakha — weak default se koi bhi
+# token forge kar sakta tha. Secret .env se aana chahiye; auth.py production mein
+# missing/weak secret pe fail-fast karta hai aur dev mein sirf warning deta hai.
 os.environ.setdefault("ANTHROPIC_API_KEY", "your-api-key-here")
 os.environ.setdefault("FRONTEND_URL", "http://localhost:3000")
 

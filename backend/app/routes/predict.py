@@ -1,5 +1,5 @@
 """Prediction routes — submit health profile, get latest results."""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session, joinedload
 from backend.app.models.database import (
     get_db, UserProfile, PredictionResult, SHAPExplanation,
@@ -7,6 +7,7 @@ from backend.app.models.database import (
 )
 from backend.app.schemas.user import HealthProfileInput, DISCLAIMER
 from backend.app.middleware.auth import get_current_user
+from backend.app.limiter import limiter
 from ml.models.registry import DISEASE_REGISTRY
 from ml.predict import band_for, DISCLAIMER as ML_DISCLAIMER
 
@@ -94,7 +95,10 @@ def risk_rows_from_db(rows) -> list:
 
 
 @router.post("", response_model=dict)
+@limiter.limit("10/minute")
 def submit_prediction(
+    request: Request,
+    response: Response,
     data: HealthProfileInput,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)

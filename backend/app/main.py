@@ -22,7 +22,10 @@ import redis
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from ml.models.orchestrator import MLPipelineOrchestrator
+from backend.app.limiter import limiter
 
 # Global ML pipeline
 ml_pipeline = MLPipelineOrchestrator()
@@ -50,6 +53,10 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Rate limiting (slowapi) — per-IP limits endpoints pe @limiter.limit(...) se lagte hain
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
@@ -62,6 +69,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    """Basic security headers — clickjacking / MIME-sniffing / referrer leaks rokta hai."""
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault("X-XSS-Protection", "1; mode=block")
+    return response
 
 # Import and register routers
 from backend.app.routes import auth, predict, shap, simulate, chat, reports, admin, diseases
