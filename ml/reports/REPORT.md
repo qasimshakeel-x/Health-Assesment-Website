@@ -1,20 +1,19 @@
 # ML Training Report (ML_TRAINING.md §12)
 
-Generated `2026-10-14 19:26 UTC` from `ml/reports/*_metrics.json` + `ml/models/model_cards/*.json` — regenerate with `python -m ml.report`.
+Generated `2026-10-17 11:37 UTC` from `ml/reports/*_metrics.json` + `ml/models/model_cards/*.json` — regenerate with `python -m ml.report`.
 
-**17 diseases trained · 3 PASS · 14 BELOW_TARGET** (targets: AUC ≥ 0.85 and macro F1 ≥ 0.80 — a missed target is reported, not hidden).
+**16 diseases trained · 3 PASS · 13 BELOW_TARGET** (targets: AUC ≥ 0.85 and macro F1 ≥ 0.80 — a missed target is reported, not hidden).
 
 ## Summary
 
 | Disease | Dataset | Rows | Pos. rate | Features | CV AUC | Test AUC | Recall | Macro F1 | Status | Flags |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `anemia` | NHANES 2017-2018 | 3000 | 15.90% | 7 | 0.759 ± 0.032 | 0.756 | 0.747 | 0.553 | BELOW_TARGET | LOW_FEATURE_MODEL; columns unusable in training (all-NaN in the source): diet_quality, frequent_fatigue, pale_cold, lightheadedness, brittle_nails |
-| `burnout` | **SYNTHETIC** | 1200 | 42.83% | 5 | 0.818 ± 0.025 | 0.877 | 0.942 | 0.745 | BELOW_TARGET | SYNTHETIC_DATA |
 | `ckd` | UCI Chronic Kidney Disease | 400 | 62.50% | 7 | 0.936 ± 0.030 | 0.955 | 0.980 | 0.677 | BELOW_TARGET | SMALL_DATASET, LOW_FEATURE_MODEL; columns unusable in training (all-NaN in the source): ankle_swelling, urination_changes, ckd_fatigue |
 | `colorectal` | NHANES 2017-2018 | 3882 | 1.42% | 9 | 0.579 ± 0.045 | 0.694 | 0.091 | 0.519 | BELOW_TARGET | HEAVY_IMBALANCE, LOW_FEATURE_MODEL; columns unusable in training (all-NaN in the source): family_cancer, diet_quality, blood_in_stool, bowel_change, colorectal_weight_loss |
-| `depression` | Real PHQ-9 questionnaire | 776 | 24.74% | 9 | 0.996 ± 0.002 | 0.998 | 1.000 | 0.936 | PASS | SUSPICIOUS_POSSIBLE_LEAKAGE |
+| `depression` | Real PHQ-9 questionnaire | 776 | 24.74% | 9 | 0.996 ± 0.002 | 0.998 | 1.000 | 0.936 | PASS | EXPECTED_LEAKAGE_LABEL_FROM_FEATURES |
 | `diabetes` | NHANES 2017-2018 | 3000 | 10.27% | 14 | 0.886 ± 0.024 | 0.875 | 0.855 | 0.654 | BELOW_TARGET | LOW_FEATURE_MODEL; columns unusable in training (all-NaN in the source): family_heart, family_hypertension, family_cancer, freq_urination, excess_thirst, weight_loss |
-| `gad7` | Real GAD-7 questionnaire | 776 | 24.23% | 7 | 0.997 ± 0.003 | 0.999 | 1.000 | 0.905 | PASS | SUSPICIOUS_POSSIBLE_LEAKAGE |
+| `gad7` | Real GAD-7 questionnaire | 776 | 24.23% | 7 | 0.997 ± 0.003 | 0.999 | 1.000 | 0.905 | PASS | EXPECTED_LEAKAGE_LABEL_FROM_FEATURES |
 | `heart` | UCI Cleveland heart disease | 303 | 45.87% | 14 | 0.774 ± 0.034 | 0.701 | 0.821 | 0.598 | BELOW_TARGET | SMALL_DATASET, LOW_FEATURE_MODEL; columns unusable in training (all-NaN in the source): bmi, sleep_hours, exercise_level, smoking, alcohol, family_diabetes, family_heart, family_hypertension, family_cancer, short_breath, palpitations |
 | `hypertension` | NHANES 2017-2018 | 3000 | 35.23% | 14 | 0.803 ± 0.016 | 0.810 | 0.967 | 0.622 | BELOW_TARGET | LOW_FEATURE_MODEL; columns unusable in training (all-NaN in the source): family_diabetes, family_heart, family_hypertension, family_cancer, headaches, dizziness, blurred_vision |
 | `liver` | UCI ILPD liver patients | 583 | 71.36% | 7 | 0.625 ± 0.026 | 0.649 | 0.940 | 0.478 | BELOW_TARGET | LOW_FEATURE_MODEL; columns unusable in training (all-NaN in the source): bmi, alcohol, jaundice, abdominal_pain, liver_fatigue |
@@ -44,23 +43,6 @@ Generated `2026-10-14 19:26 UTC` from `ml/reports/*_metrics.json` + `ml/models/m
   - App-aligned projection of a real public dataset (ml/data/README.md) — not a local clinical sample; revalidate on local data before clinical use
   - Columns the source dataset never collected: diet_quality, frequent_fatigue, pale_cold, lightheadedness, brittle_nails — the app still asks these but the model cannot use them (LOW_FEATURE_MODEL)
   - Screening and awareness tool only, not a diagnostic device
-
-### `burnout`
-
-- **Dataset:** SYNTHETIC (ml/data/generate_synthetic.py, SEED=42). A real burnout dataset exists (Mendeley 'Burnout Risks Bangladeshi Physicians', CC BY 4.0, 1434 rows) but is NOT app-aligned: Working_Hour / Dissatisfaction / Mental_Disturbances are nominal questionnaire codes, not the app's work_hours, job_satisfaction (1-5) and 3 exhaustion items (0-3). Metrics here are NOT real-world evidence; the app still serves the rule-based score_burnout() (ml/models/screening_classifier.py).
-- **Rows:** 1200 (positive rate 42.83%)
-- **Features (5):** work_hours, job_satisfaction, exhaustion_1, exhaustion_2, exhaustion_3
-- **Preprocessing:** Stratified 80/20 train/test split FIRST (`SEED=42`); median imputation + standard scaling inside the pipeline (fit on training folds only); SMOTE inside the imblearn pipeline (training folds only); RandomForest(120, depth 8) + XGBoost(120, depth 4) + LogisticRegression soft-vote (0.4/0.4/0.2); sigmoid calibration (3-fold); decision threshold from out-of-fold F2 (recall-oriented). The test set is scored once.
-- **CV AUC:** 0.8180 ± 0.0253  |  **Test AUC:** 0.8773  |  **Recall:** 0.9417  |  **Precision:** 0.6382  |  **Macro F1:** 0.7448  |  **Brier:** 0.1420  |  **Threshold:** 0.1999
-- **Top SHAP features:** `job_satisfaction` 0.7449, `exhaustion_3` 0.3, `exhaustion_2` 0.2977, `work_hours` 0.2621, `exhaustion_1` 0.2189
-- **Flags:** SYNTHETIC_DATA
-- **Status:** BELOW_TARGET
-- **Limitations:**
-  - SYNTHETIC DATA (ml/data/generate_synthetic.py, SEED=42) — ML_TRAINING.md Ground Rule 1 is deliberately deviated from here, at the project owner's request. Every metric in this card is produced from generated data, NOT real-world evidence.
-  - All app features are present in the source dataset
-  - Screening and awareness tool only, not a diagnostic device
-
-*Trained on SYNTHETIC data (see the README) — every metric below is a property of generated data, NOT evidence of real-world performance. The app still serves the rule-based `ScreeningClassifier.score_burnout()`.*
 
 ### `ckd`
 
@@ -94,19 +76,19 @@ Generated `2026-10-14 19:26 UTC` from `ml/reports/*_metrics.json` + `ml/models/m
 
 ### `depression`
 
-- **Dataset:** Real PHQ-9 questionnaire (776 rows, Figshare CC BY) — label = PHQ-9 total >=10 (moderate+). Label derived from the items BY DESIGN (mirrors the app's PHQ-9 severity rule); a SUSPICIOUS_POSSIBLE_LEAKAGE flag is expected.
+- **Dataset:** Real PHQ-9 questionnaire (776 rows, Figshare CC BY) — label = PHQ-9 total >=10 (moderate+). Label derived from the items BY DESIGN (mirrors the app's PHQ-9 severity rule); an EXPECTED_LEAKAGE_LABEL_FROM_FEATURES flag is expected.
 - **Rows:** 776 (positive rate 24.74%)
 - **Features (9):** phq1, phq2, phq3, phq4, phq5, phq6, phq7, phq8, phq9
 - **Preprocessing:** Stratified 80/20 train/test split FIRST (`SEED=42`); median imputation + standard scaling inside the pipeline (fit on training folds only); SMOTE inside the imblearn pipeline (training folds only); RandomForest(120, depth 8) + XGBoost(120, depth 4) + LogisticRegression soft-vote (0.4/0.4/0.2); sigmoid calibration (3-fold); decision threshold from out-of-fold F2 (recall-oriented). The test set is scored once.
 - **CV AUC:** 0.9959 ± 0.0024  |  **Test AUC:** 0.9978  |  **Recall:** 1.0000  |  **Precision:** 0.8298  |  **Macro F1:** 0.9358  |  **Brier:** 0.0181  |  **Threshold:** 0.1802
 - **Top SHAP features:** `phq3` 0.8948, `phq8` 0.8743, `phq5` 0.7854, `phq6` 0.6373, `phq7` 0.6133, `phq4` 0.6102
-- **Flags:** SUSPICIOUS_POSSIBLE_LEAKAGE
+- **Flags:** EXPECTED_LEAKAGE_LABEL_FROM_FEATURES
 - **Status:** PASS
 - **Limitations:**
   - App-aligned projection of a real public dataset (ml/data/README.md) — not a local clinical sample; revalidate on local data before clinical use
   - All app features are present in the source dataset
   - Screening and awareness tool only, not a diagnostic device
-  - SUSPICIOUS_POSSIBLE_LEAKAGE: test AUC > 0.97 — investigate before trusting
+  - EXPECTED_LEAKAGE_LABEL_FROM_FEATURES: the label is derived from these very features by design (it mirrors the app's clinical scoring rule), so the high AUC is expected and the model is mathematically equivalent to the rule — it adds no new signal
 
 ### `diabetes`
 
@@ -125,19 +107,19 @@ Generated `2026-10-14 19:26 UTC` from `ml/reports/*_metrics.json` + `ml/models/m
 
 ### `gad7`
 
-- **Dataset:** Real GAD-7 questionnaire (776 rows, Figshare CC BY) — label = GAD-7 total >=10 (moderate+). Label is derived from the items BY DESIGN (mirrors the clinical rule the app uses), so a SUSPICIOUS_POSSIBLE_LEAKAGE flag is expected.
+- **Dataset:** Real GAD-7 questionnaire (776 rows, Figshare CC BY) — label = GAD-7 total >=10 (moderate+). Label is derived from the items BY DESIGN (mirrors the clinical rule the app uses), so an EXPECTED_LEAKAGE_LABEL_FROM_FEATURES flag is expected.
 - **Rows:** 776 (positive rate 24.23%)
 - **Features (7):** gad1, gad2, gad3, gad4, gad5, gad6, gad7
 - **Preprocessing:** Stratified 80/20 train/test split FIRST (`SEED=42`); median imputation + standard scaling inside the pipeline (fit on training folds only); SMOTE inside the imblearn pipeline (training folds only); RandomForest(120, depth 8) + XGBoost(120, depth 4) + LogisticRegression soft-vote (0.4/0.4/0.2); sigmoid calibration (3-fold); decision threshold from out-of-fold F2 (recall-oriented). The test set is scored once.
 - **CV AUC:** 0.9968 ± 0.0026  |  **Test AUC:** 0.9991  |  **Recall:** 1.0000  |  **Precision:** 0.7600  |  **Macro F1:** 0.9050  |  **Brier:** 0.0139  |  **Threshold:** 0.1555
 - **Top SHAP features:** `gad3` 1.2859, `gad4` 0.8979, `gad1` 0.8907, `gad5` 0.8405, `gad2` 0.7315, `gad7` 0.6604
-- **Flags:** SUSPICIOUS_POSSIBLE_LEAKAGE
+- **Flags:** EXPECTED_LEAKAGE_LABEL_FROM_FEATURES
 - **Status:** PASS
 - **Limitations:**
   - App-aligned projection of a real public dataset (ml/data/README.md) — not a local clinical sample; revalidate on local data before clinical use
   - All app features are present in the source dataset
   - Screening and awareness tool only, not a diagnostic device
-  - SUSPICIOUS_POSSIBLE_LEAKAGE: test AUC > 0.97 — investigate before trusting
+  - EXPECTED_LEAKAGE_LABEL_FROM_FEATURES: the label is derived from these very features by design (it mirrors the app's clinical scoring rule), so the high AUC is expected and the model is mathematically equivalent to the rule — it adds no new signal
 
 ### `heart`
 

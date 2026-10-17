@@ -17,11 +17,12 @@ Data files are produced by `python ml/data/prepare_real.py` from the raw downloa
 `zero_is_missing` is only used for datasets where 0 is a sentinel (Pima labs). App-aligned
 NHANES/Kaggle values already use NaN for "not measured", so it stays empty.
 
-Diseases with no usable real dataset would normally be marked NO_REAL_DATA and left out (Ground
-Rule 1: no model trained on synthetic data). Two of them (`colorectal`, `burnout`) are instead
-trained on a clearly-labelled SYNTHETIC dataset at the project owner's request — an explicit,
-documented deviation from Ground Rule 1 — so that all 17 registry diseases have an artifact.
-Any entry with `"synthetic": True` must be reported as synthetic everywhere.
+Ground Rule 1: no model is trained on synthetic data — every entry here reads a real dataset.
+
+`colorectal` is trained on the real NHANES 2017-2018 sample. `burnout` has no real, app-aligned
+questionnaire (the Mendeley dataset's columns are nominal questionnaire codes, not the app's
+work_hours / job_satisfaction / exhaustion items), so it is served by the clinically-validated
+rule `ScreeningClassifier.score_burnout()` and deliberately has NO ML artifact.
 """
 TARGET_AUC = 0.85
 TARGET_MACRO_F1 = 0.80
@@ -226,22 +227,8 @@ DISEASES = {
                        "AUC, exactly as ML_TRAINING §6 predicts for a dataset this small.",
     },
 
-    # ── burnout — SYNTHETIC (Ground Rule 1 deviation, project-owner request) ───────────────
-    "burnout": {
-        "data": "ml/data/synthetic/burnout.csv",
-        "target": _TARGET,
-        "target_map": None,
-        "numeric": ["work_hours", "job_satisfaction", "exhaustion_1", "exhaustion_2",
-                    "exhaustion_3"],
-        "categorical": [],
-        "zero_is_missing": [],
-        "synthetic": True,
-        "source_note": "SYNTHETIC (ml/data/generate_synthetic.py, SEED=42). A real burnout dataset "
-                       "exists (Mendeley 'Burnout Risks Bangladeshi Physicians', CC BY 4.0, 1434 "
-                       "rows) but is NOT app-aligned: Working_Hour / Dissatisfaction / "
-                       "Mental_Disturbances are nominal questionnaire codes, not the app's "
-                       "work_hours, job_satisfaction (1-5) and 3 exhaustion items (0-3). Metrics "
-                       "here are NOT real-world evidence; the app still serves the rule-based "
-                       "score_burnout() (ml/models/screening_classifier.py).",
-    },
+    # NOTE: `burnout` is intentionally absent here — there is no real, app-aligned
+    # questionnaire (see the module docstring), so it is served by the clinically-validated
+    # rule ScreeningClassifier.score_burnout() (registry: engine="screening", scoring="rule")
+    # and deliberately has no ML artifact.
 }

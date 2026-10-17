@@ -27,13 +27,6 @@ DISCLAIMER = (
     "revalidated on local clinical data before any real-world use."
 )
 
-SYNTHETIC_NOTE = (
-    "*Trained on SYNTHETIC data (see the README) — every metric below is a property of generated "
-    "data, NOT evidence of real-world performance. The app still serves the rule-based "
-    "`ScreeningClassifier.score_burnout()`.*"
-)
-
-
 def _load():
     metrics = []
     for path in sorted(REPORTS.glob("*_metrics.json")):
@@ -76,12 +69,9 @@ def build():
     ]
     for m in ms:
         ds = m["dataset"]
-        if m.get("synthetic"):
-            short = "**SYNTHETIC**"
-        else:
-            short = ds.split(" — ")[0].split(" -- ")[0].split(" (")[0].strip()
-            if len(short) > 40:
-                short = short[:40].rstrip() + "…"
+        short = ds.split(" — ")[0].split(" -- ")[0].split(" (")[0].strip()
+        if len(short) > 40:
+            short = short[:40].rstrip() + "…"
         lines.append(
             f"| `{m['disease']}` | {short} | {m['rows']} | {m['positive_rate']:.2%} | "
             f"{len(m['features'])} | {m['cv_auc_mean']:.3f} ± {m['cv_auc_std']:.3f} | "
@@ -111,8 +101,6 @@ def build():
         if lims:
             lines.append("- **Limitations:**")
             lines += [f"  - {x}" for x in lims]
-        if m.get("synthetic"):
-            lines += ["", SYNTHETIC_NOTE]
         lines.append("")
 
     (REPORTS / "REPORT.md").write_text("\n".join(lines) + "\n", encoding="utf-8")

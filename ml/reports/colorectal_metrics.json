@@ -31,7 +31,6 @@
     "HEAVY_IMBALANCE",
     "LOW_FEATURE_MODEL"
   ],
-  "synthetic": false,
   "missing_features": [
     "family_cancer",
     "diet_quality",

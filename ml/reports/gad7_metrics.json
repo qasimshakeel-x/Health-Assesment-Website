@@ -28,7 +28,6 @@
   "flags": [
     "EXPECTED_LEAKAGE_LABEL_FROM_FEATURES"
   ],
-  "synthetic": false,
   "missing_features": [],
   "top_features_shap": {
     "gad3": 1.2859,

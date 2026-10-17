@@ -25,7 +25,6 @@
   },
   "status": "BELOW_TARGET",
   "flags": [],
-  "synthetic": false,
   "missing_features": [],
   "top_features_shap": {
     "weight_gain": 0.7836,

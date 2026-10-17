@@ -36,7 +36,6 @@
     "SMALL_DATASET",
     "LOW_FEATURE_MODEL"
   ],
-  "synthetic": false,
   "missing_features": [
     "bmi",
     "sleep_hours",

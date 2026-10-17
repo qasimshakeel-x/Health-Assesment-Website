@@ -30,7 +30,6 @@
   "flags": [
     "EXPECTED_LEAKAGE_LABEL_FROM_FEATURES"
   ],
-  "synthetic": false,
   "missing_features": [],
   "top_features_shap": {
     "phq3": 0.8948,

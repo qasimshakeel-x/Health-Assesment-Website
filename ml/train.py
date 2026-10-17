@@ -194,10 +194,6 @@ def train(name, trials=0, shap=True):
     cfg = DISEASES[name]
     X, y = load_data(cfg)
     flags = []
-    if cfg.get("synthetic"):
-        # Ground Rule 1 deviation (project-owner request) — the dataset is generated, so the
-        # metrics below are NOT evidence of real-world performance. Labelled everywhere on purpose.
-        flags.append("SYNTHETIC_DATA")
     if len(y) < 500:
         flags.append("SMALL_DATASET")
     if y.mean() < 0.10 or y.mean() > 0.90:
@@ -270,7 +266,6 @@ def train(name, trials=0, shap=True):
         "targets": {"auc": TARGET_AUC, "macro_f1": TARGET_MACRO_F1},
         "status": status,
         "flags": flags,
-        "synthetic": bool(cfg.get("synthetic")),
         "missing_features": missing_features,
         "top_features_shap": shap_report(cfg, X_tr, y_tr, name) if shap else {},
         "trained_at": datetime.now(timezone.utc).isoformat(),
@@ -297,14 +292,9 @@ def train(name, trials=0, shap=True):
         "threshold": metrics["threshold"],
         "threshold_met": status == "PASS",
         "flags": flags,
-        "known_limitations": ([
-            "SYNTHETIC DATA (ml/data/generate_synthetic.py, SEED=42) — ML_TRAINING.md Ground Rule "
-            "1 is deliberately deviated from here, at the project owner's request. Every metric "
-            "in this card is produced from generated data, NOT real-world evidence."
-        ] if cfg.get("synthetic") else [
+        "known_limitations": [
             "App-aligned projection of a real public dataset (ml/data/README.md) — not a "
-            "local clinical sample; revalidate on local data before clinical use"
-        ]) + [
+            "local clinical sample; revalidate on local data before clinical use",
             ("Columns the source dataset never collected: "
              + ", ".join(missing_features) + " — the app still asks these but the model "
              "cannot use them (LOW_FEATURE_MODEL)") if missing_features else
@@ -340,7 +330,6 @@ def write_summary(all_metrics):
         "model cannot use them (honest limitation, not a bug)",
         "- **SMALL_DATASET** = fewer than 500 rows",
         "- **HEAVY_IMBALANCE** = positive rate below 10% or above 90%",
-        "- **SYNTHETIC_DATA** = generated data — NOT real-world evidence",
         "- **EXPECTED_LEAKAGE_LABEL_FROM_FEATURES** = the label is derived from the features by "
         "design (mirrors the app's clinical rule for the PHQ-9/GAD-7 screeners), so the near-perfect "
         "AUC is expected and the ML model adds no new signal over the rule",

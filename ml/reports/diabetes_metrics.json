@@ -35,7 +35,6 @@
   "flags": [
     "LOW_FEATURE_MODEL"
   ],
-  "synthetic": false,
   "missing_features": [
     "family_heart",
     "family_hypertension",

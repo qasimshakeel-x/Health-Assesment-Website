@@ -3,7 +3,6 @@
 | Disease | Rows | CV AUC | Test AUC | Recall | Macro F1 | Brier | Status | Flags |
 |---|---|---|---|---|---|---|---|---|
 | anemia | 3000 | 0.7594±0.0321 | 0.7558 | 0.7474 | 0.5533 | 0.113 | BELOW_TARGET | LOW_FEATURE_MODEL |
-| burnout | 1200 | 0.818±0.0253 | 0.8773 | 0.9417 | 0.7448 | 0.142 | BELOW_TARGET | SYNTHETIC_DATA |
 | ckd | 400 | 0.9359±0.0298 | 0.9547 | 0.98 | 0.6772 | 0.0699 | BELOW_TARGET | SMALL_DATASET, LOW_FEATURE_MODEL |
 | colorectal | 3882 | 0.5785±0.0448 | 0.6942 | 0.0909 | 0.5189 | 0.0139 | BELOW_TARGET | HEAVY_IMBALANCE, LOW_FEATURE_MODEL |
 | depression | 776 | 0.9959±0.0024 | 0.9978 | 1.0 | 0.9358 | 0.0181 | PASS | EXPECTED_LEAKAGE_LABEL_FROM_FEATURES |
@@ -27,6 +26,5 @@
 - **LOW_FEATURE_MODEL** = the source dataset does not collect some app features, so the model cannot use them (honest limitation, not a bug)
 - **SMALL_DATASET** = fewer than 500 rows
 - **HEAVY_IMBALANCE** = positive rate below 10% or above 90%
-- **SYNTHETIC_DATA** = generated data — NOT real-world evidence
 - **EXPECTED_LEAKAGE_LABEL_FROM_FEATURES** = the label is derived from the features by design (mirrors the app's clinical rule for the PHQ-9/GAD-7 screeners), so the near-perfect AUC is expected and the ML model adds no new signal over the rule
 - **SUSPICIOUS_POSSIBLE_LEAKAGE** = test AUC > 0.97 without a documented reason — investigate before trusting

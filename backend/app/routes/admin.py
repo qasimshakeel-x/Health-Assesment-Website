@@ -32,8 +32,7 @@ def _run_retrain(action_id: int, admin_id: int):
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
         if project_root not in sys.path:
             sys.path.insert(0, project_root)
-        # ML_TRAINING.md §7: single config-driven trainer (ml/train.py) replaced the old
-        # ml/training/train_models.py synthetic generator pipeline.
+        # ML_TRAINING.md §7: single config-driven trainer (ml/train.py), real datasets only.
         from ml.train import train_all
         train_all()
         from backend.app.main import ml_pipeline
