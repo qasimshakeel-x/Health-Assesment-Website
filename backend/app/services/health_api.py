@@ -123,71 +123,121 @@ def calculate_macros(weight_kg: float, height_cm: float, age: int, gender: int, 
 # ──────────────────────── Formatters ────────────────────────
 
 def format_nutrition(data: list[dict], food_name: str) -> str:
-    """Format nutrition data into a rich chat response."""
+    """Format nutrition data into a rich chat response.
+
+    NOTE: API Ninjas **free tier** calories/protein ke liye placeholder bhejta hai
+    ("Only available for premium subscribers.") — `_sf` usay 0 kar deta hai. Aise
+    rows skip karte hain; agar kisi bhi row mein usable calories na ho to "" return
+    karte hain taake caller LLM pe fall back kar sake (pehle user ko galat
+    "0 kcal" dikhta tha aur LLM path chhut jaata tha).
+    """
     if not data:
         return ""
 
-    lines = [f"🔍 **Nutrition Facts: \"{food_name}\"**\n"]
+    def _sf(x):
+        try:
+            if isinstance(x, str):
+                s = x.strip().lower()
+                if any(k in s for k in ("premium", "subscriber", "available", "n/a", "na", "not available")):
+                    return 0
+                try:
+                    return float(s)
+                except Exception:
+                    return 0
+            if isinstance(x, (int, float)):
+                return float(x)
+        except Exception:
+            return 0
+        return 0
 
+    blocks = []
     for item in data[:3]:
+        calories = _sf(item.get("calories", 0))
+        if calories <= 0:
+            continue  # free-tier/premium placeholder ya missing calories → skip
         name = item.get("name", food_name.title())
-        calories = item.get("calories", 0)
-        serving = item.get("serving_size_g", 100)
-        protein = item.get("protein_g", 0)
-        carbs = item.get("carbohydrates_total_g", 0)
-        fat = item.get("fat_total_g", 0)
-        fiber = item.get("fiber_g", 0)
-        sugar = item.get("sugar_g", 0)
-        sodium = item.get("sodium_mg", 0)
-        cholesterol = item.get("cholesterol_mg", 0)
-        sat_fat = item.get("fat_saturated_g", 0)
+        serving = _sf(item.get("serving_size_g", 100))
+        protein = _sf(item.get("protein_g", 0))
+        carbs = _sf(item.get("carbohydrates_total_g", 0))
+        fat = _sf(item.get("fat_total_g", 0))
+        fiber = _sf(item.get("fiber_g", 0))
+        sugar = _sf(item.get("sugar_g", 0))
+        sodium = _sf(item.get("sodium_mg", 0))
+        cholesterol = _sf(item.get("cholesterol_mg", 0))
+        sat_fat = _sf(item.get("fat_saturated_g", 0))
 
         # Quality rating
-        if calories > 0:
-            protein_pct = (protein * 4 / calories * 100) if calories else 0
-            if protein_pct > 30:
-                quality = "🟢 High Protein"
-            elif fiber > 3:
-                quality = "🟢 High Fiber"
-            elif sugar > 15:
-                quality = "🔴 High Sugar"
-            elif sodium > 500:
-                quality = "🟡 High Sodium"
-            else:
-                quality = "🟢 Balanced"
+        protein_pct = (protein * 4 / calories * 100) if calories else 0
+        if protein_pct > 30:
+            quality = "🟢 High Protein"
+        elif fiber > 3:
+            quality = "🟢 High Fiber"
+        elif sugar > 15:
+            quality = "🔴 High Sugar"
+        elif sodium > 500:
+            quality = "🟡 High Sodium"
         else:
-            quality = ""
+            quality = "🟢 Balanced"
 
-        lines.append(f"**{name}** ({serving}g)")
-        lines.append(f"  🔥 **{calories} kcal** | {quality}")
-        lines.append(f"  💪 Protein: **{protein}g** | 🍞 Carbs: **{carbs}g** | 🧈 Fat: **{fat}g**")
+        block = [
+            f"**{name}** ({serving}g)",
+            f"  🔥 **{calories} kcal** | {quality}",
+            f"  💪 Protein: **{protein}g** | 🍞 Carbs: **{carbs}g** | 🧈 Fat: **{fat}g**",
+        ]
         if fiber or sugar:
-            lines.append(f"  🌾 Fiber: {fiber}g | 🍬 Sugar: {sugar}g")
+            block.append(f"  🌾 Fiber: {fiber}g | 🍬 Sugar: {sugar}g")
         if sat_fat or sodium:
-            lines.append(f"  🫀 Sat. Fat: {sat_fat}g | 🧂 Sodium: {sodium}mg | Cholesterol: {cholesterol}mg")
-        lines.append("")
+            block.append(f"  🫀 Sat. Fat: {sat_fat}g | 🧂 Sodium: {sodium}mg | Cholesterol: {cholesterol}mg")
+        blocks.append("\n".join(block))
 
-    return "\n".join(lines)
+    if not blocks:
+        return ""
+    return f"🔍 **Nutrition Facts: \"{food_name}\"**\n\n" + "\n\n".join(blocks) + "\n"
 
 
 def format_nutrition_comparison(foods: list[list[dict]], names: list[str]) -> str:
-    """Compare nutrition of multiple foods side by side."""
+    """Compare nutrition of multiple foods side by side.
+
+    Free-tier placeholder (calories unavailable) wale foods skip; agar kisi bhi
+    food ka usable data na ho to "" return (caller LLM pe fall back kare).
+    """
     if not foods or not any(foods):
         return ""
 
-    lines = ["⚖️ **Food Comparison:**\n"]
-    for i, (data, name) in enumerate(zip(foods, names)):
-        if data:
-            item = data[0]  # top result
-            cal = item.get("calories", 0)
-            pro = item.get("protein_g", 0)
-            carb = item.get("carbohydrates_total_g", 0)
-            fat = item.get("fat_total_g", 0)
-            fiber = item.get("fiber_g", 0)
-            lines.append(f"**{item.get('name', name.title())}** (per {item.get('serving_size_g', 100)}g)")
-            lines.append(f"  🔥 {cal} kcal | 💪 {pro}g P | 🍞 {carb}g C | 🧈 {fat}g F | 🌾 {fiber}g Fiber")
-            lines.append("")
+    def _sf(x):
+        try:
+            if isinstance(x, str):
+                s = x.strip().lower()
+                if any(k in s for k in ("premium", "subscriber", "available", "n/a", "na", "not available")):
+                    return 0
+                return float(s)
+            if isinstance(x, (int, float)):
+                return float(x)
+        except Exception:
+            return 0
+        return 0
 
+    lines = ["⚖️ **Food Comparison:**\n"]
+    shown = 0
+    for data, name in zip(foods, names):
+        if not data:
+            continue
+        item = data[0]  # top result
+        cal = _sf(item.get("calories", 0))
+        if cal <= 0:
+            continue  # premium placeholder → skip (0 kcal dikhane se behtar LLM)
+        pro = _sf(item.get("protein_g", 0))
+        carb = _sf(item.get("carbohydrates_total_g", 0))
+        fat = _sf(item.get("fat_total_g", 0))
+        fiber = _sf(item.get("fiber_g", 0))
+        serv = _sf(item.get("serving_size_g", 100))
+        lines.append(f"**{item.get('name', name.title())}** (per {serv}g)")
+        lines.append(f"  🔥 {int(cal)} kcal | 💪 {pro}g P | 🍞 {carb}g C | 🧈 {fat}g F | 🌾 {fiber}g Fiber")
+        lines.append("")
+        shown += 1
+
+    if shown == 0:
+        return ""
     return "\n".join(lines)
 
 

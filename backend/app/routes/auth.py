@@ -77,3 +77,12 @@ def refresh(data: TokenRefresh, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserInfo)
 def get_me(current_user: User = Depends(get_current_user)):
     return _user_info(current_user)
+
+
+@router.post("/logout")
+def logout(current_user: User = Depends(get_current_user)):
+    """Logout — JWT stateless hai, client token hata deta hai; server side audit confirm.
+
+    NOTE: token blacklist/Redis revocation Round-2+ mein (spec 03-AUTH §5 optional).
+    """
+    return {"detail": "Logged out successfully"}

@@ -1,7 +1,15 @@
 """Pydantic v2 schemas for user and health profile data."""
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
+
+# Server-side disclaimer — 05-API-SPEC §8: har risk-bearing response ke top level pe chahiye,
+# sirf frontend pe rely nahi karna (12-INTEGRATION §8). Cancer screening (Phase 5) ke liye
+# stricter variant alag constant banega.
+DISCLAIMER = (
+    "This is an AI-estimated health risk assessment, not a medical diagnosis. "
+    "Consult a qualified doctor."
+)
 
 
 class UserRegister(BaseModel):
@@ -56,6 +64,31 @@ class HealthProfileInput(BaseModel):
     alcohol: int = Field(0, ge=0, le=7)
     family_history: List[int] = Field(default=[0, 0, 0, 0], min_length=4, max_length=4)
     phq9: List[int] = Field(..., min_length=9, max_length=9)
+
+    # Phase 2-5 inputs (06-DISEASE-MODULES) — optional taake purana frontend/form422 na de.
+    # BP → stroke/metabolic_syndrome, waist → IDF metabolic, diet → anemia/colorectal/liver.
+    bp_systolic: Optional[float] = Field(None, ge=50, le=250)
+    bp_diastolic: Optional[float] = Field(None, ge=30, le=150)
+    waist_circumference: Optional[float] = Field(None, ge=40, le=250)
+    diet_quality: Optional[str] = Field(None, pattern="^(poor|average|good)$")
+
+    # {screening_key: responses} — GET /screenings/{key}/questions ke hisaab se banaya jata
+    # hai (04-DATA-MODEL §2: har key apni screening_responses row banegi).
+    screening_responses: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+
+    @field_validator("screening_responses")
+    @classmethod
+    def validate_screening_keys(cls, v):
+        # Local import: schema module ML package pe depend na kare cyclic-import safety ke liye
+        from ml.models.registry import DISEASE_REGISTRY
+        allowed = {c.screening_key for c in DISEASE_REGISTRY.values() if c.screening_key}
+        unknown = sorted(set(v.keys()) - allowed)
+        if unknown:
+            raise ValueError(
+                f"Unknown screening key(s): {', '.join(unknown)}. "
+                f"Allowed: {', '.join(sorted(allowed))}"
+            )
+        return v
 
     @field_validator("phq9")
     @classmethod
@@ -120,11 +153,18 @@ class PredictionResponse(BaseModel):
 
 class ChatMessage(BaseModel):
     message: str
+    # Session-based (S15): client har chat-open pe naya session_id bhejta hai — ye sirf
+    # reference ke liye hai, server ab DB mein chat SAVE NAHI karta (refresh pe chat fresh).
+    session_id: Optional[str] = Field(None, max_length=64)
+    # Multi-turn context: client apne current page ke pichhle messages bhejta hai (server
+    # stateless hai — DB mein kuch store nahi hota). Refresh pe client ka state khali → fresh chat.
+    history: Optional[List[Dict[str, Any]]] = None
 
 
 class ChatResponse(BaseModel):
     response: str
     risk_context: Optional[str] = None
+    session_id: Optional[str] = None
 
 
 class SimulationInput(BaseModel):

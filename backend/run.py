@@ -3,11 +3,20 @@ import os
 import sys
 from pathlib import Path
 
-# Ensure backend root is on sys.path so "backend.app.main" imports cleanly.
 project_root = Path(__file__).resolve().parent.parent
 for base in (str(project_root), str(Path(__file__).resolve().parent)):
     if base not in sys.path:
         sys.path.insert(0, base)
+
+# Repo-root .env load karo — warna GROQ_API_KEY/ANTHROPIC_API_KEY os.getenv se kabhi
+# nahi milte (diet chat silent fallback pe chala jaata tha). setdefault se PEHLE load
+# karo taake .env wali values priority lein.
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
+if load_dotenv:
+    load_dotenv(project_root / ".env")
 
 os.environ.setdefault("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/longevity_platform")
 os.environ.setdefault("REDIS_HOST", "localhost")
@@ -18,7 +27,11 @@ os.environ.setdefault("FRONTEND_URL", "http://localhost:3000")
 
 from uvicorn import run
 import importlib
-main_module = importlib.import_module("app.main")
+
+# "backend.app.main" hi import karo — routes (predict.py) bhi "backend.app.main" se
+# ml_pipeline import karte hain. "app.main" se import karne par 2 alag module instances
+# bante the → doosra ml_pipeline loaded nahi rehta tha → "Models not loaded" (BUG-3 fix).
+main_module = importlib.import_module("backend.app.main")
 app = main_module.app
 
 if __name__ == "__main__":

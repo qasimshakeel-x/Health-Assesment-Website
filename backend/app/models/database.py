@@ -1,3 +1,4 @@
+# Top-level imports
 from sqlalchemy import (
     create_engine, Column, Integer, String, Float, Boolean,
     Text, ForeignKey, DateTime, CheckConstraint, Index, ARRAY, Computed
@@ -43,11 +44,17 @@ class UserProfile(Base):
     alcohol = Column(Integer, default=0)
     family_history = Column(ARRAY(PG_INTEGER), default=[0, 0, 0, 0])
     phq9 = Column(ARRAY(PG_INTEGER), nullable=False)
+    # Phase 2+ inputs (06-DISEASE-MODULES: BP→stroke/metabolic, waist→metabolic, diet→colorectal/anemia/liver)
+    bp_systolic = Column(Float, nullable=True)
+    bp_diastolic = Column(Float, nullable=True)
+    waist_circumference = Column(Float, nullable=True)
+    diet_quality = Column(String(20), nullable=True)  # poor | average | good
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="profiles")
     predictions = relationship("PredictionResult", back_populates="profile", cascade="all, delete-orphan")
     reports = relationship("ReportLog", back_populates="profile", cascade="all, delete-orphan")
+    screening_responses = relationship("ScreeningResponse", back_populates="profile", cascade="all, delete-orphan")
 
     __table_args__ = (
         CheckConstraint("age BETWEEN 18 AND 120", name="check_age"),
@@ -80,7 +87,9 @@ class PredictionResult(Base):
 
     profile = relationship("UserProfile", back_populates="predictions")
     shap_explanations = relationship("SHAPExplanation", back_populates="prediction", cascade="all, delete-orphan")
-    chat_session = relationship("ChatSession", back_populates="prediction", uselist=False, cascade="all, delete-orphan")
+    # NOTE: multiple chat sessions per prediction (session-based storage) — uselist collection hai.
+    chat_sessions = relationship("ChatSession", back_populates="prediction", cascade="all, delete-orphan")
+    disease_risk_results = relationship("DiseaseRiskResult", back_populates="prediction", cascade="all, delete-orphan")
 
     __table_args__ = (
         Index("idx_prediction_results_user_profile_id", "user_profile_id"),
@@ -99,16 +108,76 @@ class SHAPExplanation(Base):
     prediction = relationship("PredictionResult", back_populates="shap_explanations")
 
 
+class DiseaseRiskResult(Base):
+    """Normalized per-disease risk scores (04-DATA-MODEL §2) — 16 diseases tak scale karti hai."""
+    __tablename__ = "disease_risk_results"
+    id = Column(Integer, primary_key=True, index=True)
+    prediction_id = Column(Integer, ForeignKey("prediction_results.id", ondelete="CASCADE"), nullable=False)
+    disease_key = Column(String(50), nullable=False)  # DISEASE_REGISTRY key vocabulary
+    category = Column(String(30), nullable=False)     # cardiovascular|metabolic|mental_wellness|lifestyle_linked|cancer_screening
+    risk_percent = Column(Float, nullable=False)
+    risk_label = Column(String(20), nullable=False)   # Low|Moderate|High|Very High
+    confidence = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    prediction = relationship("PredictionResult", back_populates="disease_risk_results")
+
+    __table_args__ = (
+        Index("idx_disease_risk_results_prediction_id", "prediction_id"),
+        Index("idx_disease_risk_results_disease_key", "disease_key"),
+        CheckConstraint("risk_percent BETWEEN 0.0 AND 100.0", name="check_risk_percent"),
+    )
+
+
+class ScreeningResponse(Base):
+    """Extra Phase 2-5 screening answers per screener key (04-DATA-MODEL §2) — JSONB blob."""
+    __tablename__ = "screening_responses"
+    id = Column(Integer, primary_key=True, index=True)
+    user_profile_id = Column(Integer, ForeignKey("user_profiles.id", ondelete="CASCADE"), nullable=False)
+    screening_key = Column(String(50), nullable=False)  # gad7|sleep_apnea|pcos|anemia|burnout|thyroid|lung_cancer_exposure
+    responses = Column(JSONB, default={})
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    profile = relationship("UserProfile", back_populates="screening_responses")
+
+    __table_args__ = (
+        Index("idx_screening_responses_user_profile_id", "user_profile_id"),
+        Index("idx_screening_responses_key", "screening_key"),
+    )
+
+
+class AdminActionLog(Base):
+    """Admin/manager action audit log (05-API-SPEC §7). GET /admin/actions isse padhta hai."""
+    __tablename__ = "admin_action_log"
+    id = Column(Integer, primary_key=True, index=True)
+    admin_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    action = Column(String(50), nullable=False)  # retrain_models|create_user|update_role|delete_user|...
+    target = Column(String(255), nullable=True)  # affected user email / model name
+    details = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        Index("idx_admin_action_log_admin_id", "admin_id"),
+    )
+
+
 class ChatSession(Base):
     __tablename__ = "chat_sessions"
     id = Column(Integer, primary_key=True, index=True)
-    prediction_id = Column(Integer, ForeignKey("prediction_results.id", ondelete="CASCADE"), nullable=False, unique=True)
+    prediction_id = Column(Integer, ForeignKey("prediction_results.id", ondelete="CASCADE"), nullable=False)
+    # Session-based storage: har chat "session" ka apna row. session_id client se aata hai
+    # (frontend har chat-open pe naya UUID banata hai) — purane messages kabhi mix/display nahi hote.
+    session_id = Column(String(64), unique=True, index=True, nullable=True)
     messages = Column(JSONB, default=[])
     system_prompt = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     last_message_at = Column(DateTime, default=datetime.utcnow)
 
-    prediction = relationship("PredictionResult", back_populates="chat_session")
+    prediction = relationship("PredictionResult", back_populates="chat_sessions")
+
+    __table_args__ = (
+        Index("idx_chat_sessions_prediction_id", "prediction_id"),
+    )
 
 
 class ReportLog(Base):
@@ -123,13 +192,13 @@ class ReportLog(Base):
     profile = relationship("UserProfile", back_populates="reports")
 
 
-def init_db():
-    Base.metadata.create_all(bind=engine)
-
-
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+
+
+def init_db():
+    Base.metadata.create_all(bind=engine)

@@ -4,10 +4,14 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 import os, sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Repo root on sys.path — "backend.app.models" isi se resolve hota hai (db/alembic/env.py se 3 up).
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from backend.app.models.database import Base
-from backend.app.models.database import User, UserProfile, PredictionResult, SHAPExplanation, ChatSession, ReportLog
+from backend.app.models.database import (
+    User, UserProfile, PredictionResult, SHAPExplanation, ChatSession, ReportLog,
+    DiseaseRiskResult, ScreeningResponse, AdminActionLog,
+)
 
 config = context.config
 if config.config_file_name is not None:

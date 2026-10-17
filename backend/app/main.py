@@ -3,9 +3,19 @@ from pathlib import Path
 import sys
 
 # Ensure project root is on sys.path so relative "ml.*" imports resolve.
-_project_root = Path(__file__).resolve().parents[1]
+# NOTE: parents[2] = project root (D:\Uni-Project); parents[1] sirf backend/ tha —
+# wahin se "import ml..." fail hota tha (BUG-3 fix).
+_project_root = Path(__file__).resolve().parents[2]
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
+
+# Repo-root .env load karo (uvicorn/start_backend.bat se boot hone par bhi GROQ_API_KEY
+# mile — diet chat ka LLM isi se chalta hai). Missing python-dotenv pe silently skip.
+try:
+    from dotenv import load_dotenv
+    load_dotenv(_project_root / ".env")
+except ImportError:
+    pass
 
 import os
 import redis
@@ -54,7 +64,7 @@ app.add_middleware(
 )
 
 # Import and register routers
-from backend.app.routes import auth, predict, shap, simulate, chat, reports, admin
+from backend.app.routes import auth, predict, shap, simulate, chat, reports, admin, diseases
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
@@ -63,6 +73,9 @@ app.include_router(shap.router, prefix="/api/v1/shap", tags=["SHAP"])
 app.include_router(simulate.router, prefix="/api/v1/simulate", tags=["Simulate"])
 app.include_router(chat.router, prefix="/api/v1/chat", tags=["Chat"])
 app.include_router(reports.router, prefix="/api/v1/reports", tags=["Reports"])
+app.include_router(diseases.router, prefix="/api/v1/diseases", tags=["Diseases"])
+# 05-API-SPEC §3 — screening metadata ka path `/screenings/...` hai (diseases prefix ke bahar)
+app.include_router(diseases.screenings_router, prefix="/api/v1/screenings", tags=["Screenings"])
 
 
 @app.get("/")

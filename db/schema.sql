@@ -33,10 +33,29 @@ CREATE TABLE user_profiles (
     alcohol INTEGER DEFAULT 0 CHECK (alcohol BETWEEN 0 AND 7),
     family_history INTEGER[] NOT NULL DEFAULT '{0,0,0,0}',
     phq9 INTEGER[] NOT NULL,
+    -- Phase 2+ inputs (06-DISEASE-MODULES: BP stroke/metabolic, waist metabolic, diet colorectal/anemia/liver)
+    bp_systolic FLOAT,
+    bp_diastolic FLOAT,
+    waist_circumference FLOAT,
+    diet_quality VARCHAR(20),
     created_at TIMESTAMP DEFAULT NOW()
 );
 
 CREATE INDEX idx_user_profiles_user_id ON user_profiles(user_id);
+
+-- ============================================================
+-- SCREENING RESPONSES (extra Phase 2-5 questions — 04-DATA-MODEL §2)
+-- ============================================================
+CREATE TABLE screening_responses (
+    id SERIAL PRIMARY KEY,
+    user_profile_id INTEGER NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
+    screening_key VARCHAR(50) NOT NULL,
+    responses JSONB NOT NULL DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_screening_responses_user_profile_id ON screening_responses(user_profile_id);
+CREATE INDEX idx_screening_responses_key ON screening_responses(screening_key);
 
 -- ============================================================
 -- PREDICTION RESULTS
@@ -56,6 +75,24 @@ CREATE TABLE prediction_results (
 );
 
 CREATE INDEX idx_prediction_results_user_profile_id ON prediction_results(user_profile_id);
+
+-- ============================================================
+-- DISEASE RISK RESULTS (normalized per-disease scores — 04-DATA-MODEL §2)
+-- prediction_results ke flat columns purane hain (back-compat); naye 16 diseases idhar jate hain
+-- ============================================================
+CREATE TABLE disease_risk_results (
+    id SERIAL PRIMARY KEY,
+    prediction_id INTEGER NOT NULL REFERENCES prediction_results(id) ON DELETE CASCADE,
+    disease_key VARCHAR(50) NOT NULL,
+    category VARCHAR(30) NOT NULL,
+    risk_percent FLOAT NOT NULL CHECK (risk_percent BETWEEN 0.0 AND 100.0),
+    risk_label VARCHAR(20) NOT NULL,
+    confidence FLOAT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_disease_risk_results_prediction_id ON disease_risk_results(prediction_id);
+CREATE INDEX idx_disease_risk_results_disease_key ON disease_risk_results(disease_key);
 
 -- ============================================================
 -- SHAP EXPLANATIONS

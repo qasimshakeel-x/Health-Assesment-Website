@@ -1,11 +1,12 @@
 """Diet Chat route — rule-based health diet chatbot with risk-aware context + live API integrations."""
 import os
 import re
+import uuid
 import random
-from datetime import datetime
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from backend.app.models.database import get_db, User, PredictionResult, UserProfile, ChatSession
+from backend.app.models.database import get_db, User, PredictionResult, UserProfile
 from backend.app.schemas.user import ChatMessage, ChatResponse
 from backend.app.middleware.auth import get_current_user
 from backend.app.services.health_api import (
@@ -47,20 +48,78 @@ TYPE_MAP = {
 }
 
 
+def _risk(p: PredictionResult, key: str) -> float:
+    """disease_risk_results se risk% (registry disease_key), na mile to flat-column fallback.
+
+    WS-6 extension: rule-based branches bhi ab registry rows se padhte hain (flat columns
+    sirf legacy rows ke liye).
+    """
+    for r in getattr(p, "disease_risk_results", None) or []:
+        if r.disease_key == key:
+            return float(r.risk_percent or 0)
+    flat = {
+        "diabetes": getattr(p, "diabetes_risk", None),
+        "heart": getattr(p, "heart_risk", None),
+        "hypertension": getattr(p, "hypertension_risk", None),
+        "obesity": getattr(p, "obesity_risk", None),
+    }.get(key)
+    return float(flat) if flat is not None else 0.0
+
+
+def build_risk_badge(p: PredictionResult) -> str:
+    """ChatResponse.risk_context — sabse zyada 4 elevated risks (disease_risk_results se)."""
+    rows = sorted(
+        getattr(p, "disease_risk_results", None) or [],
+        key=lambda r: float(r.risk_percent or 0), reverse=True,
+    )
+    elevated = [r for r in rows if float(r.risk_percent or 0) >= 40]
+    if not rows:
+        flat = [("Diabetes", _risk(p, "diabetes")), ("Heart", _risk(p, "heart")),
+                ("Hypertension", _risk(p, "hypertension")), ("Obesity", _risk(p, "obesity"))]
+        parts = [f"{label}: {val:.0f}%" for label, val in flat if val >= 40]
+        return "Risk Profile Active - " + ", ".join(parts) if parts else "Risk Profile Active"
+    if not elevated:
+        return "Risk Profile Active"
+    from ml.models.registry import DISEASE_REGISTRY
+    parts = []
+    for r in elevated[:4]:
+        cfg = DISEASE_REGISTRY.get(r.disease_key)
+        label = cfg.label if cfg else r.disease_key.replace("_", " ").title()
+        parts.append(f"{label}: {float(r.risk_percent or 0):.0f}%")
+    return "Risk Profile Active - " + ", ".join(parts)
+
+
 def build_risk_summary(p: PredictionResult, profile: UserProfile) -> str:
+    """Latest prediction ki poori risk summary — WS-6: `disease_risk_results` rows se
+    (12-INTEGRATION §5: chat context isi table se aata hai, flat columns nahi).
+    Purane rows na ho to flat columns se fallback.
+    """
     lines = []
-    if p.diabetes_risk is not None:
-        icon = "🟢" if p.diabetes_risk < 25 else "🟡" if p.diabetes_risk < 50 else "🔴"
-        lines.append(f"{icon} Diabetes Risk: {p.diabetes_risk}%")
-    if p.heart_risk is not None:
-        icon = "🟢" if p.heart_risk < 25 else "🟡" if p.heart_risk < 50 else "🔴"
-        lines.append(f"{icon} Heart Disease Risk: {p.heart_risk}%")
-    if p.hypertension_risk is not None:
-        icon = "🟢" if p.hypertension_risk < 25 else "🟡" if p.hypertension_risk < 50 else "🔴"
-        lines.append(f"{icon} Hypertension Risk: {p.hypertension_risk}%")
-    if p.obesity_risk is not None:
-        icon = "🟢" if p.obesity_risk < 25 else "🟡" if p.obesity_risk < 50 else "🔴"
-        lines.append(f"{icon} Obesity Risk: {p.obesity_risk}%")
+    rows = list(getattr(p, "disease_risk_results", None) or [])
+    if rows:
+        from ml.models.registry import DISEASE_REGISTRY
+        order = {k: i for i, k in enumerate(DISEASE_REGISTRY.keys())}
+        rows.sort(key=lambda r: order.get(r.disease_key, 999))
+        for r in rows:
+            risk = float(r.risk_percent or 0)
+            icon = "🟢" if risk < 25 else "🟡" if risk < 50 else "🟠" if risk < 75 else "🔴"
+            cfg = DISEASE_REGISTRY.get(r.disease_key)
+            label = cfg.label if cfg else r.disease_key.replace("_", " ").title()
+            lines.append(f"{icon} {label}: {risk:.0f}% ({r.risk_label})")
+    else:
+        # fallback (legacy prediction rows)
+        if p.diabetes_risk is not None:
+            icon = "🟢" if p.diabetes_risk < 25 else "🟡" if p.diabetes_risk < 50 else "🔴"
+            lines.append(f"{icon} Diabetes Risk: {p.diabetes_risk}%")
+        if p.heart_risk is not None:
+            icon = "🟢" if p.heart_risk < 25 else "🟡" if p.heart_risk < 50 else "🔴"
+            lines.append(f"{icon} Heart Disease Risk: {p.heart_risk}%")
+        if p.hypertension_risk is not None:
+            icon = "🟢" if p.hypertension_risk < 25 else "🟡" if p.hypertension_risk < 50 else "🔴"
+            lines.append(f"{icon} Hypertension Risk: {p.hypertension_risk}%")
+        if p.obesity_risk is not None:
+            icon = "🟢" if p.obesity_risk < 25 else "🟡" if p.obesity_risk < 50 else "🔴"
+            lines.append(f"{icon} Obesity Risk: {p.obesity_risk}%")
     if p.depression_level:
         lines.append(f"🧠 Depression Level: {p.depression_level}")
     if profile.bmi:
@@ -69,10 +128,157 @@ def build_risk_summary(p: PredictionResult, profile: UserProfile) -> str:
     return "\n".join(lines)
 
 
+def build_health_context(p: PredictionResult, profile: UserProfile) -> str:
+    """Groq/Claude system prompt ke liye POORA DB-derived health assessment (12-INTEGRATION §5).
+
+    Prediction + profile se: demographics, bio age, longevity, depression + 16 disease risks.
+    Groq isi context ko padh kar diet + daily plan banata hai.
+    """
+    gender = {0: "Female", 1: "Male"}.get(profile.gender, "—")
+    parts = [
+        f"Age: {profile.age} | Gender: {gender} | BMI: {profile.bmi:.1f}" if profile.bmi
+        else f"Age: {profile.age} | Gender: {gender}",
+        f"Sleep: {profile.sleep_hours} h/night | Exercise level: {profile.exercise_level}/4 "
+        f"| Smoking: {'Yes' if profile.smoking else 'No'} | Alcohol: {profile.alcohol}/week",
+    ]
+    if p.biological_age is not None:
+        parts.append(f"Biological age: {p.biological_age:.1f} yrs")
+    if p.longevity_score is not None:
+        parts.append(f"Longevity score: {p.longevity_score:.0f}/100")
+    if p.depression_level:
+        parts.append(f"Depression screening: {p.depression_level}")
+    parts.append("Disease risk assessment (from platform database):")
+    parts.append(build_risk_summary(p, profile))
+    return "\n".join(x for x in parts if x)
+
+
+# ─── S15: disease-wise food swap guide ───
+# A (specific "yeh khana, par aapko X hai to Y khayein") + B (concise, curated, low-error)
+# ka mix: sirf user ke ELEVATED risks (>=40%) ke swaps prompt mein jaate hain, aur LLM inhe
+# natural inline advice mein weave karta hai (har food pe forced swap nahi).
+FOOD_SWAPS = {
+    "diabetes": "white rice/white bread/potato -> brown rice, whole-wheat roti, quinoa, oats; "
+                "sugary drinks/juice -> water, unsweetened green tea; ripe banana/mango/grapes -> "
+                "apple, guava, berries",
+    "heart": "red meat/fried food -> grilled fish (omega-3), skinless chicken, lentils; "
+             "butter/ghee -> olive oil; full-fat dairy -> low-fat",
+    "hypertension": "salt/pickles/papad/packaged & restaurant food -> herbs, lemon, garlic, "
+                    "cumin; canned soup -> fresh low-sodium home food",
+    "obesity": "fried snacks/sweets -> roasted chana, nuts, fruit; large portions -> half-plate "
+               "vegetables + fist-size carbs",
+    "metabolic_syndrome": "refined carbs/trans fat -> whole grains, fiber, lean protein",
+    "ckd": "high potassium/phosphorus (banana, tomato, dairy, cola) -> apple, cabbage, white "
+           "rice (doctor-guided)",
+    "liver": "alcohol/fried/fatty food -> steamed/boiled, olive oil, more vegetables; added "
+             "sugar -> whole fruit",
+    "anemia": "tea/coffee WITH meals -> iron foods (spinach, lentils, red meat, pumpkin seeds) "
+              "plus vitamin C (lemon, orange); tea 1h after meals",
+    "thyroid": "excess raw cabbage/soy -> cooked and moderate; use iodised salt",
+    "pcos": "refined carbs/sugar -> whole grains, lean protein, healthy fats; add fiber",
+    "sleep_apnea": "late heavy meals/alcohol -> light early dinner, no alcohol at night",
+    "gad7": "excess caffeine/sugar -> magnesium foods (nuts, greens), omega-3; no caffeine "
+            "after noon",
+    "colorectal": "processed/red meat -> fish, poultry, beans; more fiber (whole grains, veggies)",
+    "lung_cancer_exposure": "smoking/processed food -> antioxidant foods (berries, tomatoes, "
+                            "greens), no smoking",
+    "burnout": "skipped meals/junk -> regular balanced meals, B-vitamins, hydration",
+    "stroke": "high-salt/high-fat/fried -> DASH-style: vegetables, whole grains, fish, low salt",
+}
+
+
+def build_diet_swap_hints(p: PredictionResult) -> str:
+    """User ke elevated (>=40%) diseases ke liye food-swap hints (prompt ke liye)."""
+    rows = sorted(
+        getattr(p, "disease_risk_results", None) or [],
+        key=lambda r: float(r.risk_percent or 0), reverse=True,
+    )
+    lines = []
+    for r in rows:
+        if float(r.risk_percent or 0) < 40:
+            continue
+        swap = FOOD_SWAPS.get(r.disease_key)
+        if not swap:
+            continue
+        from ml.models.registry import DISEASE_REGISTRY
+        cfg = DISEASE_REGISTRY.get(r.disease_key)
+        label = cfg.label if cfg else r.disease_key.replace("_", " ").title()
+        lines.append(f"- {label} ({float(r.risk_percent or 0):.0f}%): {swap}")
+    return "\n".join(lines)
+
+
 def generate_response(msg: str, prediction: PredictionResult, profile: UserProfile) -> str:
     text = msg.lower().strip()
     p = prediction
     bmi = profile.bmi if profile.bmi else 0
+
+    # ============ DIET PLAN / MEAL PLAN ============
+    # NOTE: ye branch GREETINGS/branch se PEHLE chahiye — warna "diet"/"meal"/"eat"/"menu"
+    # wale natural trigger phrases (line 248/193/162) isey shadow kar dete the ("generate my
+    # diet plan" -> weight branch). Isliye yahan sabse pehle check hota hai.
+    if re.search(r'\b(diet plan|meal plan|daily plan|full day|food plan|poora din|menu plan|planner|what should i eat today|sara din|pura din)\b', text):
+        bmi_cat = "underweight" if bmi < 18.5 else "normal" if bmi < 25 else "overweight" if bmi < 30 else "obese"
+        cal_range = "1500-1800" if profile.gender == 0 else "1800-2200"
+        if bmi_cat in ("overweight", "obese"):
+            cal_range = "1400-1700" if profile.gender == 0 else "1600-2000"
+
+        plan = [f"🗓️ **Your Personalized Daily Diet Plan**\n",
+                f"📊 Based on: BMI {bmi:.1f} ({bmi_cat}), Age {profile.age}, Gender {'Male' if profile.gender == 1 else 'Female'}",
+                f"🎯 Target calories: **{cal_range} kcal/day**\n"]
+
+        plan.append("🌅 **Early Morning (6-7 AM):**")
+        plan.append("- 1 glass warm water + lemon")
+        if _risk(p, "diabetes") > 40:
+            plan.append("- Soaked fenugreek seeds (methi) — helps blood sugar")
+        else:
+            plan.append("- 5-6 soaked almonds")
+
+        plan.append("\n🍳 **Breakfast (7-8 AM):**")
+        if _risk(p, "diabetes") > 40:
+            plan.append("- Moong dal chilla with paneer filling")
+            plan.append("- 1 cup green tea (unsweetened)")
+        elif _risk(p, "heart") > 40:
+            plan.append("- Oatmeal with walnuts, chia seeds & berries")
+            plan.append("- 1 cup green tea")
+        else:
+            plan.append("- 2 whole wheat roti + vegetable sabzi OR")
+            plan.append("- Overnight oats with nuts & fruits")
+            plan.append("- 1 cup milk or green tea")
+
+        plan.append("\n🍎 **Mid-Morning Snack (10-10:30 AM):**")
+        plan.append("- 1 fruit (apple/pear/guava)")
+        plan.append("- OR handful of mixed nuts (almonds, walnuts)")
+
+        plan.append("\n🍽️ **Lunch (12:30-1 PM):**")
+        plan.append("- 2 roti (whole wheat) OR 1 cup brown rice")
+        plan.append("- 1 bowl dal (lentils)")
+        plan.append("- 1 bowl vegetable sabzi")
+        plan.append("- 1 small bowl curd/raita")
+        plan.append("- Salad: cucumber, tomato, carrot")
+        if _risk(p, "hypertension") > 40:
+            plan.append("⚠️ Use minimal salt — flavor with lemon, herbs, spices")
+
+        plan.append("\n🫖 **Evening Snack (4-5 PM):**")
+        plan.append("- Green tea / herbal tea")
+        plan.append("- 1 small bowl roasted chana OR vegetable soup")
+
+        plan.append("\n🌙 **Dinner (7-8 PM):**")
+        plan.append("- 1-2 roti (light, whole wheat)")
+        plan.append("- 1 bowl dal or grilled fish/chicken")
+        plan.append("- 1 bowl vegetable (steamed/light cooked)")
+        if _risk(p, "obesity") > 50:
+            plan.append("⚠️ Keep dinner light — avoid rice at night")
+
+        plan.append("\n🌜 **Bedtime (9-10 PM):**")
+        plan.append("- 1 glass warm turmeric milk (haldi doodh)")
+        if p.depression_level in ["Moderate", "Moderately Severe", "Severe"]:
+            plan.append("- Chamomile tea for better sleep")
+
+        plan.append("\n💧 **Hydration:** 8-10 glasses of water throughout the day")
+        plan.append(f"\n🏋️ **Exercise:** 30 min walk after lunch & dinner")
+        if _risk(p, "diabetes") > 40:
+            plan.append("(Post-meal walks help control blood sugar!)")
+
+        return "\n".join(plan) + "\n\n💡 **Tips:**\n- Eat at consistent times daily\n- Chew food slowly (20+ times)\n- Stop eating 2-3 hours before sleep\n- Control portions — use smaller plates" + DISCLAIMER
 
     # ============ GREETINGS ============
     if re.search(r'\b(hello|hi|hey|start|help|menu|salam|aoa|assalam)\b', text):
@@ -95,9 +301,9 @@ def generate_response(msg: str, prediction: PredictionResult, profile: UserProfi
     # ============ BREAKFAST ============
     if re.search(r'\b(breakfast|morning|subah|nashta)\b', text):
         tips = []
-        if p.diabetes_risk and p.diabetes_risk > 40:
+        if _risk(p, "diabetes") > 40:
             tips.append("🩸 **Diabetes-friendly:** Oatmeal with nuts & berries, eggs with avocado, Greek yogurt (unsweetened)")
-        if p.heart_risk and p.heart_risk > 40:
+        if _risk(p, "heart") > 40:
             tips.append("❤️ **Heart-healthy:** Oatmeal with walnuts, whole grain toast with olive oil, smoothie with flaxseed")
         if p.depression_level in ["Moderate", "Moderately Severe", "Severe"]:
             tips.append("🧠 **Mood-boosting:** Eggs (choline + B12), banana smoothie, oatmeal with dark chocolate chips")
@@ -108,11 +314,11 @@ def generate_response(msg: str, prediction: PredictionResult, profile: UserProfi
     # ============ LUNCH / DINNER / MEAL ============
     if re.search(r'\b(lunch|dopehar|dinner|shaam|meal|khana|eat|food|recipe|cook)\b', text):
         tips = []
-        if p.diabetes_risk and p.diabetes_risk > 40:
+        if _risk(p, "diabetes") > 40:
             tips.append("🩸 **For blood sugar control:**\n- Grilled chicken with quinoa & roasted veggies\n- Lentil soup with whole grain bread\n- Stir-fry with tofu, broccoli, brown rice")
-        if p.heart_risk and p.heart_risk > 40:
+        if _risk(p, "heart") > 40:
             tips.append("❤️ **Heart-healthy meals:**\n- Baked salmon with sweet potato & spinach\n- Mediterranean salad (olive oil, feta, olives)\n- Bean tacos with fresh salsa & avocado")
-        if p.hypertension_risk and p.hypertension_risk > 40:
+        if _risk(p, "hypertension") > 40:
             tips.append("🩺 **DASH diet:**\n- Low-sodium chicken with steamed veggies\n- Grilled fish with brown rice\n- Bean & vegetable stew")
         if not tips:
             tips.append("🥗 **Balanced meals:**\n- Grilled protein + whole grain + vegetables\n- Use herbs & spices instead of salt\n- Olive oil for cooking\n- Aim for colorful plates!")
@@ -126,9 +332,9 @@ def generate_response(msg: str, prediction: PredictionResult, profile: UserProfi
                    "🫐 Berries with Greek yogurt",
                    "🥚 Boiled eggs — protein + choline",
                    "🥑 Half avocado with salt & lemon"]
-        if p.diabetes_risk and p.diabetes_risk > 40:
+        if _risk(p, "diabetes") > 40:
             options.append("🩸 Avoid: candy, cookies, juice. Choose: nuts, cheese, vegetables")
-        if p.heart_risk and p.heart_risk > 40:
+        if _risk(p, "heart") > 40:
             options.append("❤️ Avoid: fried snacks, chips. Choose: nuts, fruits, veggies")
         return ("🥜 **Healthy Snack Options:**\n\n" + "\n".join(f"- {o}" for o in options) + "\n\n⏰ Eat every 3-4 hours to maintain energy!" + DISCLAIMER)
 
@@ -140,9 +346,9 @@ def generate_response(msg: str, prediction: PredictionResult, profile: UserProfi
                 "- Limit sugary drinks and sodas",
                 "- Herbal teas (chamomile, peppermint) are great",
                 "- Coffee: 1-3 cups/day is fine, avoid excess sugar"]
-        if p.diabetes_risk and p.diabetes_risk > 40:
+        if _risk(p, "diabetes") > 40:
             tips.append("🩸 **Avoid:** fruit juices, sodas, sweetened coffee. Choose: water, unsweetened tea")
-        if p.hypertension_risk and p.hypertension_risk > 40:
+        if _risk(p, "hypertension") > 40:
             tips.append("🩺 **Limit:** caffeine to 1-2 cups. Choose: hibiscus tea, water with lemon")
         return "\n".join(tips) + DISCLAIMER
 
@@ -154,7 +360,7 @@ def generate_response(msg: str, prediction: PredictionResult, profile: UserProfi
                 "- 30 min daily walk after meals (helps blood sugar)",
                 "- Yoga for stress relief & flexibility",
                 "- Start slow and gradually increase"]
-        if p.diabetes_risk and p.diabetes_risk > 40:
+        if _risk(p, "diabetes") > 40:
             tips.append("🩸 Walking 30 min after meals can reduce blood sugar spikes by 30%!")
         if p.depression_level in ["Moderate", "Moderately Severe", "Severe"]:
             tips.append("🧠 Exercise releases endorphins — even a 15-min walk can improve mood!")
@@ -169,7 +375,7 @@ def generate_response(msg: str, prediction: PredictionResult, profile: UserProfi
                 "- Half plate vegetables always",
                 "- No crash diets — sustainable changes only",
                 "- Track what you eat for awareness"]
-        if p.obesity_risk and p.obesity_risk > 50:
+        if _risk(p, "obesity") > 50:
             tips.append("\n⚠️ Your obesity risk is elevated. Focus on:")
             tips.append("- Reducing portion sizes gradually")
             tips.append("- More vegetables, less refined carbs")
@@ -201,7 +407,7 @@ def generate_response(msg: str, prediction: PredictionResult, profile: UserProfi
 
     # ============ SPECIFIC FOODS ============
     if re.search(r'\b(chicken|paneer|egg|anday|meat|fish|mutton|beef)\b', text):
-        if p.heart_risk and p.heart_risk > 45:
+        if _risk(p, "heart") > 45:
             return ("🥩 **Protein sources for heart health:**\n\n"
                     "✅ **Best choices:**\n- Grilled/baked fish (salmon, mackerel) — omega-3\n- Chicken breast (skinless) — lean protein\n- Eggs (1-2/day) — protein + choline\n- Lentils & beans — plant protein + fiber\n\n"
                     "⚠️ **Limit:**\n- Red meat (beef, mutton) — 1x/week max\n- Fried meats\n- Processed meats (sausage, bacon)\n\n"
@@ -211,7 +417,7 @@ def generate_response(msg: str, prediction: PredictionResult, profile: UserProfi
                 "📏 **Portion:** Size of your palm per meal" + DISCLAIMER)
 
     if re.search(r'\b(rice|chawal|biryani|pulao)\b', text):
-        if p.diabetes_risk and p.diabetes_risk > 40:
+        if _risk(p, "diabetes") > 40:
             return ("🍚 **Rice advice for blood sugar:**\n\n"
                     "⚠️ White rice spikes blood sugar quickly.\n\n"
                     "✅ **Better alternatives:**\n- Brown rice (lower GI)\n- Quinoa (protein + fiber)\n- Cauliflower rice (very low carb)\n- Bulgur wheat\n\n"
@@ -234,7 +440,7 @@ def generate_response(msg: str, prediction: PredictionResult, profile: UserProfi
 
     if re.search(r'\b(fruit|phal|apple|banana|orange|mango)\b', text):
         tips = ["🍎 **Fruit Guide:**\n"]
-        if p.diabetes_risk and p.diabetes_risk > 40:
+        if _risk(p, "diabetes") > 40:
             tips.append("🩸 **Choose low-GI fruits:**")
             tips.append("- Berries (strawberry, blueberry) — best for blood sugar\n- Apple with skin\n- Pear\n- Orange\n- Kiwi")
             tips.append("\n⚠️ **Limit high-sugar fruits:** Mango, grapes, banana (half only), dried fruits")
@@ -244,75 +450,9 @@ def generate_response(msg: str, prediction: PredictionResult, profile: UserProfi
             tips.append("\n📏 **Portion:** 2-3 servings/day, eat whole not juice")
         return "\n".join(tips) + DISCLAIMER
 
-    # ============ DIET PLAN / MEAL PLAN ============
-    if re.search(r'\b(diet plan|meal plan|daily plan|full day|poora din|menu plan|planner|what should i eat today|sara din|pura din)\b', text):
-        bmi_cat = "underweight" if bmi < 18.5 else "normal" if bmi < 25 else "overweight" if bmi < 30 else "obese"
-        cal_range = "1500-1800" if profile.gender == 0 else "1800-2200"
-        if bmi_cat in ("overweight", "obese"):
-            cal_range = "1400-1700" if profile.gender == 0 else "1600-2000"
-
-        plan = [f"🗓️ **Your Personalized Daily Diet Plan**\n",
-                f"📊 Based on: BMI {bmi:.1f} ({bmi_cat}), Age {profile.age}, Gender {'Male' if profile.gender == 1 else 'Female'}",
-                f"🎯 Target calories: **{cal_range} kcal/day**\n"]
-
-        plan.append("🌅 **Early Morning (6-7 AM):**")
-        plan.append("- 1 glass warm water + lemon")
-        if p.diabetes_risk and p.diabetes_risk > 40:
-            plan.append("- Soaked fenugreek seeds (methi) — helps blood sugar")
-        else:
-            plan.append("- 5-6 soaked almonds")
-
-        plan.append("\n🍳 **Breakfast (7-8 AM):**")
-        if p.diabetes_risk and p.diabetes_risk > 40:
-            plan.append("- Moong dal chilla with paneer filling")
-            plan.append("- 1 cup green tea (unsweetened)")
-        elif p.heart_risk and p.heart_risk > 40:
-            plan.append("- Oatmeal with walnuts, chia seeds & berries")
-            plan.append("- 1 cup green tea")
-        else:
-            plan.append("- 2 whole wheat roti + vegetable sabzi OR")
-            plan.append("- Overnight oats with nuts & fruits")
-            plan.append("- 1 cup milk or green tea")
-
-        plan.append("\n🍎 **Mid-Morning Snack (10-10:30 AM):**")
-        plan.append("- 1 fruit (apple/pear/guava)")
-        plan.append("- OR handful of mixed nuts (almonds, walnuts)")
-
-        plan.append("\n🍽️ **Lunch (12:30-1 PM):**")
-        plan.append("- 2 roti (whole wheat) OR 1 cup brown rice")
-        plan.append("- 1 bowl dal (lentils)")
-        plan.append("- 1 bowl vegetable sabzi")
-        plan.append("- 1 small bowl curd/raita")
-        plan.append("- Salad: cucumber, tomato, carrot")
-        if p.hypertension_risk and p.hypertension_risk > 40:
-            plan.append("⚠️ Use minimal salt — flavor with lemon, herbs, spices")
-
-        plan.append("\n🫖 **Evening Snack (4-5 PM):**")
-        plan.append("- Green tea / herbal tea")
-        plan.append("- 1 small bowl roasted chana OR vegetable soup")
-
-        plan.append("\n🌙 **Dinner (7-8 PM):**")
-        plan.append("- 1-2 roti (light, whole wheat)")
-        plan.append("- 1 bowl dal or grilled fish/chicken")
-        plan.append("- 1 bowl vegetable (steamed/light cooked)")
-        if p.obesity_risk and p.obesity_risk > 50:
-            plan.append("⚠️ Keep dinner light — avoid rice at night")
-
-        plan.append("\n🌜 **Bedtime (9-10 PM):**")
-        plan.append("- 1 glass warm turmeric milk (haldi doodh)")
-        if p.depression_level in ["Moderate", "Moderately Severe", "Severe"]:
-            plan.append("- Chamomile tea for better sleep")
-
-        plan.append("\n💧 **Hydration:** 8-10 glasses of water throughout the day")
-        plan.append(f"\n🏋️ **Exercise:** 30 min walk after lunch & dinner")
-        if p.diabetes_risk and p.diabetes_risk > 40:
-            plan.append("(Post-meal walks help control blood sugar!)")
-
-        return "\n".join(plan) + "\n\n💡 **Tips:**\n- Eat at consistent times daily\n- Chew food slowly (20+ times)\n- Stop eating 2-3 hours before sleep\n- Control portions — use smaller plates" + DISCLAIMER
-
     # ============ SUGAR / SWEETS ============
     if re.search(r'\b(sugar|sweet|meetha|cake|cookie|chocolate|candy|mithai)\b', text):
-        if p.diabetes_risk and p.diabetes_risk > 40:
+        if _risk(p, "diabetes") > 40:
             return ("🍬 **Sugar & Diabetes:**\n\n"
                     "⚠️ Your diabetes risk is elevated — sugar management is critical!\n\n"
                     "❌ **Avoid:**\n- Candy, cookies, cakes\n- Sugary drinks (soda, juice)\n- White sugar in tea/coffee\n- Mithai (traditional sweets)\n- Ice cream\n\n"
@@ -327,7 +467,7 @@ def generate_response(msg: str, prediction: PredictionResult, profile: UserProfi
 
     # ============ SALT / SODIUM ============
     if re.search(r'\b(salt|sodium|noon|namak)\b', text):
-        if p.hypertension_risk and p.hypertension_risk > 40:
+        if _risk(p, "hypertension") > 40:
             return ("🧂 **Salt & Blood Pressure:**\n\n"
                     "⚠️ Your hypertension risk is elevated — reduce sodium!\n\n"
                     "❌ **High-sodium foods to avoid:**\n- Pickles, papad, chips\n- Canned soups\n- Processed/packaged foods\n- Soy sauce, ketchup\n- Restaurant/takeout food\n\n"
@@ -385,7 +525,7 @@ def generate_response(msg: str, prediction: PredictionResult, profile: UserProfi
     # ============ ALCOHOL ============
     if re.search(r'\b(alcohol|wine|beer|sharab|drink|whisky)\b', text):
         tips = ["🍷 **Alcohol & Health:**\n"]
-        if p.heart_risk and p.heart_risk > 45:
+        if _risk(p, "heart") > 45:
             tips.append("⚠️ Your heart risk is elevated — limit alcohol strictly.")
         if p.depression_level in ["Moderate", "Moderately Severe", "Severe"]:
             tips.append("⚠️ Alcohol worsens depression symptoms — avoid or minimize.")
@@ -414,11 +554,11 @@ def generate_response(msg: str, prediction: PredictionResult, profile: UserProfi
 
     # ============ DEFAULT ============
     risk_context = ""
-    if p.diabetes_risk and p.diabetes_risk > 40:
+    if _risk(p, "diabetes") > 40:
         risk_context += "🩸 Your diabetes risk is elevated — focus on low-sugar, high-fiber foods.\n"
-    if p.heart_risk and p.heart_risk > 40:
+    if _risk(p, "heart") > 40:
         risk_context += "❤️ Your heart risk is elevated — choose omega-3 fish, olive oil, nuts.\n"
-    if p.hypertension_risk and p.hypertension_risk > 40:
+    if _risk(p, "hypertension") > 40:
         risk_context += "🩺 Your hypertension risk is elevated — reduce salt, eat potassium-rich foods.\n"
     if p.depression_level in ["Moderate", "Moderately Severe", "Severe"]:
         risk_context += "🧠 Your depression level is elevated — omega-3, magnesium, B-vitamins help.\n"
@@ -454,7 +594,8 @@ async def _check_api_queries(text: str, prediction: PredictionResult, profile: U
 
     # ══════════════ 1. NUTRITION / CALORIE LOOKUP ══════════════
     nutri_match = re.search(
-        r'(?:calories?|calorie|nutrition|nutrients?|kcal|macros?)\s+(?:in|of|for)\s+(.+)',
+        r'(?:calories?|calorie|nutrition|nutrients?|kcal|macros?|protein|carbohydrates?|carbs?|'
+        r'fats?|fiber|sugar|sodium)\s+(?:in|of|for)\s+(.+)',
         clean,
     )
     if not nutri_match:
@@ -464,7 +605,8 @@ async def _check_api_queries(text: str, prediction: PredictionResult, profile: U
         )
     if not nutri_match:
         nutri_match = re.search(
-            r'(?:what\s+(?:are\s+)?(?:the\s+)?(?:calories?|macros?|nutrients?|nutrition))\s+(?:in|of|for)\s+(.+)',
+            r'(?:what\s+(?:are\s+)?(?:the\s+)?(?:calories?|macros?|nutrients?|nutrition|protein|carbs?))'
+            r'\s+(?:in|of|for)\s+(.+)',
             clean,
         )
     if nutri_match:
@@ -472,7 +614,17 @@ async def _check_api_queries(text: str, prediction: PredictionResult, profile: U
         if food and len(food) > 1:
             data = await search_nutrition(food)
             if data:
-                return format_nutrition(data, food)
+                formatted = format_nutrition(data, food)
+                if formatted:
+                    return formatted
+            # API data usable nahi (free-tier "premium" placeholder) → focused LLM jawab
+            llm = _llm_chat(
+                _nutrition_system_prompt(prediction),
+                [{"role": "user", "content": text}],
+                max_tokens=500,
+            )
+            if llm:
+                return llm
 
     # ══════════════ 2. FOOD COMPARISON ══════════════
     comp_match = re.search(
@@ -491,7 +643,17 @@ async def _check_api_queries(text: str, prediction: PredictionResult, profile: U
             data1 = await search_nutrition(food1)
             data2 = await search_nutrition(food2)
             if data1 and data2:
-                return format_nutrition_comparison([data1, data2], [food1, food2])
+                formatted = format_nutrition_comparison([data1, data2], [food1, food2])
+                if formatted:
+                    return formatted
+            # API data usable nahi → focused LLM comparison
+            llm = _llm_chat(
+                _nutrition_system_prompt(prediction),
+                [{"role": "user", "content": text}],
+                max_tokens=500,
+            )
+            if llm:
+                return llm
 
     # ══════════════ 3. EXERCISE / WORKOUT LOOKUP ══════════════
     ex_match = re.search(
@@ -637,9 +799,9 @@ async def _check_api_queries(text: str, prediction: PredictionResult, profile: U
                   f"- 🍽️ 1 glass before each meal\n"
                   f"- 🏋️ 1-2 glasses during exercise\n"
                   f"- 🌙 1 glass before bed\n\n")
-        if prediction.diabetes_risk and prediction.diabetes_risk > 40:
+        if _risk(prediction, "diabetes") > 40:
             result += "🩸 **Tip:** Drinking water before meals helps control blood sugar!\n"
-        if prediction.hypertension_risk and prediction.hypertension_risk > 40:
+        if _risk(prediction, "hypertension") > 40:
             result += "🩺 **Tip:** Adequate water helps regulate blood pressure.\n"
         return result + DISCLAIMER
 
@@ -655,6 +817,229 @@ async def _check_api_queries(text: str, prediction: PredictionResult, profile: U
             return format_exercises(data, ex_name)
 
     return ""
+
+
+# ══════════════════════════════════════════════════════════════
+#  LLM integration — Groq preferred, Claude fallback, "" on no key
+# ══════════════════════════════════════════════════════════════
+
+def _env_key(name: str) -> str:
+    """os.getenv se API key — empty ya 'your-...' placeholder ho to "" (missing)."""
+    val = (os.getenv(name, "") or "").strip()
+    if not val or val.startswith("your-") or val in ("your-api-key-here",):
+        return ""
+    return val
+
+
+# Agar OpenAI key out-of-credits/invalid nikli to is process mein dobara try na karein
+# (warna har message pe ek fail call se latency badhti hai). Env se override ho sakta hai.
+_OPENAI_DISABLED = False
+
+
+def _llm_openai(system_prompt: str, history: list, max_tokens: int) -> str:
+    """OpenAI chat completion. Key missing / no credits / invalid nikle to is process
+    mein OpenAI ko disable kar dete hain aur Groq pe chale jaate hain."""
+    global _OPENAI_DISABLED
+    if _OPENAI_DISABLED:
+        return ""
+    key = os.getenv("OPENAI_API_KEY") or os.getenv("OPEN-AI") or ""
+    if not key:
+        _OPENAI_DISABLED = True
+        return ""
+    import httpx
+    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    body = {
+        "model": model,
+        "messages": [{"role": "system", "content": system_prompt}] + (history or [])[-10:],
+    }
+    # naye models (gpt-5* / o-series) max_completion_tokens maangte hain
+    if model.startswith(("gpt-5", "o1", "o3", "o4")):
+        body["max_completion_tokens"] = max_tokens
+    else:
+        body["max_tokens"] = max_tokens
+    try:
+        with httpx.Client(timeout=40.0) as client:
+            resp = client.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                json=body,
+            )
+        if resp.status_code == 200:
+            content = resp.json()["choices"][0]["message"]["content"]
+            return content if content and content.strip() else ""
+        if resp.status_code in (401, 402, 403, 429):
+            # no credits / invalid key → process ke liye disable
+            _OPENAI_DISABLED = True
+    except Exception:
+        pass
+    return ""
+
+
+def _llm_chat(system_prompt: str, history: list, max_tokens: int = 600) -> str:
+    """Shared LLM call: OpenAI (if credits) → Groq (free) → Anthropic Claude → "".
+
+    NOTE: Groq ka gpt-oss ek REASONING model hai — hidden reasoning tokens bhi
+    `max_tokens` mein count hote hain, is liye chhota budget do to `content` khaali
+    aa jaata hai (finish_reason="length"). `reasoning_effort="low"` + thoda bada
+    budget rakhte hain.
+    """
+    # 1) OpenAI
+    out = _llm_openai(system_prompt, history, max_tokens)
+    if out:
+        return out
+
+    # 2) Groq (free)
+    import httpx
+    groq_key = _env_key("GROQ_API_KEY")
+    if groq_key:
+        try:
+            groq_model = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+            groq_body = {
+                "model": groq_model,
+                "max_tokens": max_tokens,
+                "messages": [{"role": "system", "content": system_prompt}] + (history or [])[-10:],
+            }
+            if "gpt-oss" in groq_model:
+                groq_body["reasoning_effort"] = "low"
+            with httpx.Client(timeout=30.0) as client:
+                resp = client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"},
+                    json=groq_body,
+                )
+                resp.raise_for_status()
+                content = resp.json()["choices"][0]["message"]["content"]
+                if content and content.strip():
+                    return content
+        except Exception:
+            pass  # Groq fail → Claude try
+
+    # 3) Anthropic Claude
+    claude_key = _env_key("ANTHROPIC_API_KEY")
+    if claude_key:
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                resp = client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={
+                        "x-api-key": claude_key,
+                        "anthropic-version": "2023-06-01",
+                        "content-type": "application/json",
+                    },
+                    json={
+                        "model": "claude-sonnet-4-20250514",
+                        "max_tokens": max_tokens,
+                        "system": system_prompt,
+                        "messages": (history or [])[-10:],
+                    },
+                )
+                resp.raise_for_status()
+                return resp.json()["content"][0]["text"]
+        except Exception:
+            pass
+    return ""
+
+
+def _nutrition_system_prompt(prediction: PredictionResult) -> str:
+    """Factual nutrition lookup ke liye FOCUSED prompt — seedha numbers, koi gyaan nahi.
+
+    Bada risk-advice prompt model ko generic diet advice dene pe laga deta tha, is liye
+    "calories in chicken breast" jaise sawaal ka asli jawab (kcal/protein) miss ho jaata tha.
+    """
+    top_risks = build_risk_badge(prediction)
+    return (
+        "You are a concise nutrition assistant for a health platform.\n"
+        "Answer the user's nutrition question with ACCURATE standard values (per 100g, and per a "
+        "common serving if useful).\n"
+        "Rules:\n"
+        "- Your FIRST line MUST contain the calorie number (kcal). Never omit it.\n"
+        "- Include the key macros (protein / carbs / fat).\n"
+        "- 2-4 short lines MAX. Do NOT give a generic diet lecture or list unrelated swaps.\n"
+        "- If clearly relevant, add ONE short tip using the user's top risks (below).\n"
+        "- End with a one-line medical disclaimer.\n"
+        f"- User's top risks (only for the optional tip): {top_risks or 'none'}\n"
+    )
+
+
+# Plan request detection — English + Roman Urdu variants. Pehle sirf 4-5 English phrases
+# match hote the, is liye "diet chart do" / "aaj kya khaun" jaise sawaal plan nahi banate the.
+_PLAN_REQUEST_RE = re.compile(
+    r"(diet\s*plan|meal\s*plan|daily\s*plan|full[\s-]*day|food\s*plan|diet\s*chart|meal\s*chart|"
+    r"diet\s*schedule|week\s*plan|weekly\s*plan|menu\s*plan|planner|"
+    r"what\s+should\s+i\s+eat|aaj\s+kya\s+kha|kya\s+khaun|kya\s+khaon|khana\s+batao|diet\s+bata|"
+    r"poora\s+din|pura\s+din|sara\s+din|din\s+bhar)",
+    re.IGNORECASE,
+)
+
+
+def _plan_system_prompt(health_context: str, swap_hints: str) -> str:
+    """Exact, clean one-day diet plan — food + portion per line, koi swap-explanation nahi.
+
+    Pehle plan line mein "— white rice → but your diabetes risk is high..." ghusa deta tha,
+    jis se plan 200+ words ka messy paragraph ban jaata tha (user: "exact diet plan nahi de raha").
+    Yahan swap SILENTLY apply hote hain — sirf final best option likhna hai.
+    """
+    return (
+        "You are the AI Diet & Longevity Advisor of this platform.\n"
+        "=== USER HEALTH ASSESSMENT ===\n"
+        f"{health_context}\n"
+        "=== END ASSESSMENT ===\n\n"
+        + ("=== ALLOWED SWAPS (apply these SILENTLY — do NOT write them out) ===\n"
+           f"{swap_hints}\n=== END ===\n\n" if swap_hints else "")
+        + "The user asked for a DIET PLAN. Give a clean, EXACT one-day plan:\n"
+        "- Output EXACTLY these labelled lines, in this order: 'Breakfast:', 'Mid-morning:', "
+        "'Lunch:', 'Evening snack:', 'Dinner:', 'Hydration:', 'Lifestyle:'.\n"
+        "- Each food line = the food + a portion, e.g. '1 bowl oats with 1 apple', "
+        "'100g grilled chicken + 1 cup salad', '2 rotis'.\n"
+        "- Pick the better option for the user's risks (apply the swaps silently). Do NOT write "
+        "'but your X risk is high', arrows, or any explanation.\n"
+        "- Total under ~120 words. No preamble, no repetition.\n"
+        "- End with one short disclaimer line."
+    )
+
+
+def _llm_response(message: str, prediction: PredictionResult, profile: UserProfile, history: list) -> str:
+    """Risk-aware diet/plan advice: Groq (free) → Claude → "" (caller rule-based fallback).
+
+    POST /chat: health summary risk_summary se server-side attach hoti hai (12-INTEGRATION §5).
+    Dono keys missing ho to "" return karta hai.
+
+    Factual nutrition lookups (calories/macros of a food) yahan nahi aate — unhe
+    `_check_api_queries` focused nutrition prompt se handle karta hai.
+    """
+    # Poora DB health assessment system prompt mein — LLM isi ko padh kar diet + plan deta hai.
+    health_context = build_health_context(prediction, profile)
+    swap_hints = build_diet_swap_hints(prediction)
+
+    # Intent-based length (short-by-default): explicit plan request pe clean exact plan,
+    # warna smart + short + to-the-point. (User: "meaningful ho or smart but short reply".)
+    is_plan_request = bool(_PLAN_REQUEST_RE.search(message))
+
+    if is_plan_request:
+        # Clean exact plan — swap-explanation ke bina (warna plan messy ho jaata hai).
+        return _llm_chat(_plan_system_prompt(health_context, swap_hints), history, max_tokens=1200)
+
+    system_prompt = (
+        "You are the AI Diet & Longevity Advisor of this platform. "
+        "Below is the user's complete health assessment fetched from the platform database.\n\n"
+        "=== USER HEALTH ASSESSMENT ===\n"
+        f"{health_context}\n"
+        "=== END ASSESSMENT ===\n\n"
+        + ("=== DISEASE FOOD-SWAP GUIDE (use these exact swaps) ===\n"
+           f"{swap_hints}\n=== END GUIDE ===\n\n" if swap_hints else "")
+        + "Give PERSONALISED, PRACTICAL advice. Be smart, meaningful and to-the-point:\n"
+        "- Anchor advice to the user's HIGHEST disease risks and their actual numbers.\n"
+        "- DISEASE-SWAP RULE: whenever you suggest a food/meal that one of the user's elevated "
+        "conditions would restrict, in the SAME line give its better alternative — e.g. \"White "
+        "rice — but your diabetes risk is high, so have brown rice or quinoa instead\". Apply this "
+        "only for the user's actual elevated risks; do NOT invent swaps for conditions the user "
+        "does not have.\n"
+        "- DEFAULT = SHORT & SMART: reply in 2-3 tight bullets, under ~70 words TOTAL. "
+        "One line per bullet. Answer the user's specific question first, then personalise.\n"
+        "- Never diagnose a condition. Always end with a one-line medical disclaimer."
+    )
+
+    return _llm_chat(system_prompt, history, max_tokens=600)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -681,15 +1066,16 @@ async def send_message(
 
     profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).order_by(UserProfile.created_at.desc()).first()
 
-    session = db.query(ChatSession).filter(ChatSession.prediction_id == prediction.id).first()
-    if not session:
-        session = ChatSession(prediction_id=prediction.id, system_prompt="diet_chat", messages=[])
-        db.add(session)
-        db.commit()
-        db.refresh(session)
-
-    messages = session.messages or []
-    messages.append({"role": "user", "content": data.message})
+    # S15: STATELESS chat — DB mein kuch SAVE NAHI hota (user: "chat DB mein na ho, session-based,
+    # refresh pe fresh"). Client apne current page ke pichhle messages `history` mein bhejta hai →
+    # multi-turn context milta hai; refresh pe client state khali → chat fresh. `session_id` sirf
+    # echo/reference ke liye (koi ChatSession row ban/update nahi hoti).
+    session_id = (data.session_id or "").strip() or uuid.uuid4().hex
+    history = [
+        {"role": m.get("role"), "content": m.get("content")}
+        for m in (data.history or [])
+        if isinstance(m, dict) and m.get("role") in ("user", "assistant") and m.get("content")
+    ][-10:]
 
     # Step 1: Try API-powered queries first
     api_response = await _check_api_queries(data.message, prediction, profile)
@@ -697,73 +1083,29 @@ async def send_message(
     if api_response:
         assistant_message = api_response
     else:
-        # Step 2: Try Claude API, fall back to rule-based
-        ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-        assistant_message = ""
-
-        if ANTHROPIC_API_KEY and ANTHROPIC_API_KEY not in ("", "your-api-key-here"):
-            try:
-                import httpx as httpx_sync
-                risk_summary = build_risk_summary(prediction, profile)
-                system_prompt = (
-                    f"You are a health-focused AI diet advisor. "
-                    f"The user has this health profile:\n{risk_summary}\n\n"
-                    f"Provide personalized, evidence-based nutrition advice. "
-                    f"Always end with a medical disclaimer. Never diagnose conditions."
-                )
-                with httpx_sync.Client(timeout=30.0) as client:
-                    response = client.post(
-                        "https://api.anthropic.com/v1/messages",
-                        headers={
-                            "x-api-key": ANTHROPIC_API_KEY,
-                            "anthropic-version": "2023-06-01",
-                            "content-type": "application/json"
-                        },
-                        json={
-                            "model": "claude-sonnet-4-20250514",
-                            "max_tokens": 1024,
-                            "system": system_prompt,
-                            "messages": messages[-10:]
-                        }
-                    )
-                    response.raise_for_status()
-                    result = response.json()
-                    assistant_message = result["content"][0]["text"]
-            except Exception:
-                assistant_message = generate_response(data.message, prediction, profile)
-        else:
+        # Step 2: Groq (free) → Claude → rule-based fallback
+        llm_history = history + [{"role": "user", "content": data.message}]
+        assistant_message = _llm_response(data.message, prediction, profile, llm_history)
+        if not assistant_message:
             assistant_message = generate_response(data.message, prediction, profile)
-
-    messages.append({"role": "assistant", "content": assistant_message})
-    session.messages = messages
-    session.last_message_at = datetime.utcnow()
-    db.commit()
 
     return ChatResponse(
         response=assistant_message,
-        risk_context=f"Risk Profile Active - Diabetes: {prediction.diabetes_risk}%, Heart: {prediction.heart_risk}%"
+        risk_context=build_risk_badge(prediction),
+        session_id=session_id,
     )
 
 
 @router.get("/{user_id}/history")
 def get_chat_history(
     user_id: int,
+    session_id: Optional[str] = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get chat history for a user."""
-    session = (
-        db.query(ChatSession)
-        .join(PredictionResult)
-        .join(UserProfile)
-        .filter(UserProfile.user_id == user_id)
-        .order_by(ChatSession.last_message_at.desc())
-        .first()
-    )
-    if not session:
-        return {"messages": [], "risk_context": None}
+    """S15: chat DB mein save nahi hota → history HAMESHA khaali.
 
-    return {
-        "messages": session.messages or [],
-        "risk_context": f"Risk Profile Active"
-    }
+    (Purani `chat_sessions` table ab use nahi hoti; chat sirf client-side session state mein
+    rehti hai — refresh pe fresh. Endpoint frontend compat ke liye rakha hai.)
+    """
+    return {"messages": [], "risk_context": None}
