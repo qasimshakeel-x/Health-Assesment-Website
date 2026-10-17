@@ -1,0 +1,47 @@
+{
+  "disease": "depression",
+  "dataset": "Real PHQ-9 questionnaire (776 rows, Figshare CC BY) \u2014 label = PHQ-9 total >=10 (moderate+). Label derived from the items BY DESIGN (mirrors the app's PHQ-9 severity rule); a SUSPICIOUS_POSSIBLE_LEAKAGE flag is expected.",
+  "rows": 776,
+  "positive_rate": 0.2474,
+  "features": [
+    "phq1",
+    "phq2",
+    "phq3",
+    "phq4",
+    "phq5",
+    "phq6",
+    "phq7",
+    "phq8",
+    "phq9"
+  ],
+  "cv_auc_mean": 0.9959,
+  "cv_auc_std": 0.0024,
+  "test_auc": 0.9978,
+  "test_recall": 1.0,
+  "test_precision": 0.8298,
+  "test_macro_f1": 0.9358,
+  "brier_score": 0.0181,
+  "threshold": 0.1802,
+  "targets": {
+    "auc": 0.85,
+    "macro_f1": 0.8
+  },
+  "status": "PASS",
+  "flags": [
+    "SUSPICIOUS_POSSIBLE_LEAKAGE"
+  ],
+  "synthetic": false,
+  "missing_features": [],
+  "top_features_shap": {
+    "phq3": 0.8948,
+    "phq8": 0.8743,
+    "phq5": 0.7854,
+    "phq6": 0.6373,
+    "phq7": 0.6133,
+    "phq4": 0.6102,
+    "phq2": 0.4537,
+    "phq1": 0.3358,
+    "phq9": 0.195
+  },
+  "trained_at": "2026-10-14T19:14:15.996046+00:00"
+}

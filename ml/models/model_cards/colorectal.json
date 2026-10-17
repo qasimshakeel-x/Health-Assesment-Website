@@ -1,0 +1,35 @@
+{
+  "disease_key": "colorectal",
+  "trained_at": "2026-10-14T19:13:25.059278Z",
+  "dataset": "NHANES 2017-2018 (J) MCQ_J MCQ230A-D, code 16 (colon) / 31 (rectum), age>=40 (app gate). Only 4 of the 9 app features exist in NHANES and there are just 55 cases (1.4%) -> LOW_FEATURE_MODEL + HEAVY_IMBALANCE and a weak AUC, exactly as ML_TRAINING \u00a76 predicts for a dataset this small.",
+  "dataset_version": "v1",
+  "n_samples": 3882,
+  "metrics": {
+    "auc_roc": 0.6942202705910278,
+    "macro_f1": 0.5188854489164086,
+    "test_recall": 0.0909,
+    "brier_score": 0.0139
+  },
+  "features": [
+    "age",
+    "family_cancer",
+    "diet_quality",
+    "exercise_level",
+    "smoking",
+    "alcohol",
+    "blood_in_stool",
+    "bowel_change",
+    "colorectal_weight_loss"
+  ],
+  "threshold": 0.0177,
+  "threshold_met": false,
+  "flags": [
+    "HEAVY_IMBALANCE",
+    "LOW_FEATURE_MODEL"
+  ],
+  "known_limitations": [
+    "App-aligned projection of a real public dataset (ml/data/README.md) \u2014 not a local clinical sample; revalidate on local data before clinical use",
+    "Columns the source dataset never collected: family_cancer, diet_quality, blood_in_stool, bowel_change, colorectal_weight_loss \u2014 the app still asks these but the model cannot use them (LOW_FEATURE_MODEL)",
+    "Screening and awareness tool only, not a diagnostic device"
+  ]
+}

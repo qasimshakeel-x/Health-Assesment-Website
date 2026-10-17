@@ -1,4 +1,5 @@
 """Depression Risk Detection — PHQ-9 Gradient Boosting classifier."""
+import os
 import numpy as np
 from typing import Dict
 from sklearn.ensemble import GradientBoostingClassifier
@@ -7,6 +8,10 @@ from sklearn.metrics import f1_score, classification_report
 from imblearn.over_sampling import SMOTE
 from ml.models.base import MLModel
 from ml.models.constants import DEPRESSION_LEVELS
+from ml.predict import has_artifact, predict_risk
+
+# Absolute pkl path — cwd-relative path startup crash karta tha (BUG-1 fix)
+_PKL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pkl", "depression_classifier.pkl")
 
 
 class DepressionClassifier(MLModel):
@@ -36,6 +41,19 @@ class DepressionClassifier(MLModel):
             "macro_f1": f1_score(y_resampled, y_pred, average="macro")
         }
 
+    def _artifact_risk(self, phq9_scores: list):
+        """ML_TRAINING.md §9: use the calibrated `ml/models/depression.joblib` (PHQ-9 items →
+        moderate+ risk) when present; None → keep the legacy severity-only response."""
+        if not has_artifact("depression"):
+            return None
+        payload = {f"phq{i}": float(s) for i, s in enumerate(phq9_scores, start=1)}
+        try:
+            return predict_risk("depression", payload)
+        except Exception as exc:      # corrupt/old artifact → legacy path
+            import logging
+            logging.getLogger(__name__).warning("predict_risk(depression) failed: %s", exc)
+            return None
+
     def predict_depression(self, phq9_scores: list) -> dict:
         """Classify depression severity from PHQ-9 scores."""
         X = np.array([phq9_scores])
@@ -56,6 +74,14 @@ class DepressionClassifier(MLModel):
             "disclaimer": self.SEVERE_DISCLAIMER,
             "recommendations": self._get_recommendations(severity)
         }
+
+        # §9: calibrated screening risk + coded referral decision (red flags in code, not LLM)
+        art = self._artifact_risk(phq9_scores)
+        if art is not None:
+            result["risk"] = art["risk"]
+            result["band"] = art["band"]
+            result["see_doctor"] = art["see_doctor"] or severity in (
+                "Moderate", "Moderately Severe", "Severe")
 
         if severity == "Severe":
             result["crisis_resources"] = self.CRISIS_RESOURCES
@@ -110,15 +136,17 @@ class DepressionClassifier(MLModel):
         }
         return recommendations.get(severity, [])
 
-    def save(self, path: str = "ml/models/pkl/depression_classifier.pkl"):
-        import pickle, os
+    def save(self, path: str = None):
+        import pickle
+        path = path or _PKL_PATH
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "wb") as f:
             pickle.dump(self.model, f)
         self.is_loaded = True
 
-    def load(self, path: str = "ml/models/pkl/depression_classifier.pkl"):
+    def load(self, path: str = None):
         import pickle
+        path = path or _PKL_PATH
         with open(path, "rb") as f:
             self.model = pickle.load(f)
         self.is_loaded = True

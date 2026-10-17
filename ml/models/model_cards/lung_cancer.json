@@ -1,0 +1,33 @@
+{
+  "disease_key": "lung_cancer",
+  "trained_at": "2026-10-14T19:14:23.964775Z",
+  "dataset": "Kaggle lung-cancer survey (309 rows) \u2014 SMALL_DATASET; passive-smoke/blood symptoms not surveyed (NaN).",
+  "dataset_version": "v1",
+  "n_samples": 309,
+  "metrics": {
+    "auc_roc": 0.7199074074074074,
+    "macro_f1": 0.46551724137931033,
+    "test_recall": 1.0,
+    "brier_score": 0.1066
+  },
+  "features": [
+    "smoking",
+    "passive_smoke",
+    "age",
+    "family_cancer",
+    "persistent_cough",
+    "coughing_blood",
+    "breath_shortness"
+  ],
+  "threshold": 0.5289,
+  "threshold_met": false,
+  "flags": [
+    "SMALL_DATASET",
+    "LOW_FEATURE_MODEL"
+  ],
+  "known_limitations": [
+    "App-aligned projection of a real public dataset (ml/data/README.md) \u2014 not a local clinical sample; revalidate on local data before clinical use",
+    "Columns the source dataset never collected: passive_smoke, family_cancer, coughing_blood \u2014 the app still asks these but the model cannot use them (LOW_FEATURE_MODEL)",
+    "Screening and awareness tool only, not a diagnostic device"
+  ]
+}

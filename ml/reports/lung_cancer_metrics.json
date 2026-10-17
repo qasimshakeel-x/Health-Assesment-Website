@@ -1,0 +1,45 @@
+{
+  "disease": "lung_cancer",
+  "dataset": "Kaggle lung-cancer survey (309 rows) \u2014 SMALL_DATASET; passive-smoke/blood symptoms not surveyed (NaN).",
+  "rows": 309,
+  "positive_rate": 0.8738,
+  "features": [
+    "smoking",
+    "passive_smoke",
+    "age",
+    "family_cancer",
+    "persistent_cough",
+    "coughing_blood",
+    "breath_shortness"
+  ],
+  "cv_auc_mean": 0.6135,
+  "cv_auc_std": 0.1123,
+  "test_auc": 0.7199,
+  "test_recall": 1.0,
+  "test_precision": 0.871,
+  "test_macro_f1": 0.4655,
+  "brier_score": 0.1066,
+  "threshold": 0.5289,
+  "targets": {
+    "auc": 0.85,
+    "macro_f1": 0.8
+  },
+  "status": "BELOW_TARGET",
+  "flags": [
+    "SMALL_DATASET",
+    "LOW_FEATURE_MODEL"
+  ],
+  "synthetic": false,
+  "missing_features": [
+    "passive_smoke",
+    "family_cancer",
+    "coughing_blood"
+  ],
+  "top_features_shap": {
+    "persistent_cough": 0.8049,
+    "age": 0.6117,
+    "smoking": 0.3624,
+    "breath_shortness": 0.1789
+  },
+  "trained_at": "2026-10-14T19:14:23.964775+00:00"
+}

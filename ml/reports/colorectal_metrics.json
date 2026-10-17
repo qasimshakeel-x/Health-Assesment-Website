@@ -1,0 +1,49 @@
+{
+  "disease": "colorectal",
+  "dataset": "NHANES 2017-2018 (J) MCQ_J MCQ230A-D, code 16 (colon) / 31 (rectum), age>=40 (app gate). Only 4 of the 9 app features exist in NHANES and there are just 55 cases (1.4%) -> LOW_FEATURE_MODEL + HEAVY_IMBALANCE and a weak AUC, exactly as ML_TRAINING \u00a76 predicts for a dataset this small.",
+  "rows": 3882,
+  "positive_rate": 0.0142,
+  "features": [
+    "age",
+    "family_cancer",
+    "diet_quality",
+    "exercise_level",
+    "smoking",
+    "alcohol",
+    "blood_in_stool",
+    "bowel_change",
+    "colorectal_weight_loss"
+  ],
+  "cv_auc_mean": 0.5785,
+  "cv_auc_std": 0.0448,
+  "test_auc": 0.6942,
+  "test_recall": 0.0909,
+  "test_precision": 0.0435,
+  "test_macro_f1": 0.5189,
+  "brier_score": 0.0139,
+  "threshold": 0.0177,
+  "targets": {
+    "auc": 0.85,
+    "macro_f1": 0.8
+  },
+  "status": "BELOW_TARGET",
+  "flags": [
+    "HEAVY_IMBALANCE",
+    "LOW_FEATURE_MODEL"
+  ],
+  "synthetic": false,
+  "missing_features": [
+    "family_cancer",
+    "diet_quality",
+    "blood_in_stool",
+    "bowel_change",
+    "colorectal_weight_loss"
+  ],
+  "top_features_shap": {
+    "age": 0.7173,
+    "exercise_level": 0.2168,
+    "smoking": 0.1522,
+    "alcohol": 0.0699
+  },
+  "trained_at": "2026-10-14T19:13:25.059278+00:00"
+}

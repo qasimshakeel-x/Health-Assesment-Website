@@ -1,0 +1,29 @@
+{
+  "disease_key": "pcos",
+  "trained_at": "2026-10-14T19:18:57.530929Z",
+  "dataset": "Kaggle PCOS (541 rows) \u2014 Age/BMI/cycle/weight-gain/hair/acne.",
+  "dataset_version": "v1",
+  "n_samples": 541,
+  "metrics": {
+    "auc_roc": 0.8719558599695586,
+    "macro_f1": 0.7522727272727273,
+    "test_recall": 0.8611,
+    "brier_score": 0.1241
+  },
+  "features": [
+    "age",
+    "bmi",
+    "irregular_periods",
+    "weight_gain",
+    "excess_hair",
+    "acne"
+  ],
+  "threshold": 0.2221,
+  "threshold_met": false,
+  "flags": [],
+  "known_limitations": [
+    "App-aligned projection of a real public dataset (ml/data/README.md) \u2014 not a local clinical sample; revalidate on local data before clinical use",
+    "All app features are present in the source dataset",
+    "Screening and awareness tool only, not a diagnostic device"
+  ]
+}

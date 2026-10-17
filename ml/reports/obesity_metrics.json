@@ -1,0 +1,58 @@
+{
+  "disease": "obesity",
+  "dataset": "NHANES 2017-2018 (J) \u2014 label = measured BMI>=30; BMI deliberately excluded from features (ML_TRAINING \u00a75). LOW_FEATURE_MODEL.",
+  "rows": 3000,
+  "positive_rate": 0.3007,
+  "features": [
+    "age",
+    "gender",
+    "bmi",
+    "sleep_hours",
+    "exercise_level",
+    "smoking",
+    "alcohol",
+    "family_diabetes",
+    "family_heart",
+    "family_hypertension",
+    "family_cancer",
+    "sugary_diet",
+    "freq_hunger",
+    "hard_lose_weight"
+  ],
+  "cv_auc_mean": 0.7272,
+  "cv_auc_std": 0.0244,
+  "test_auc": 0.7218,
+  "test_recall": 0.9444,
+  "test_precision": 0.3881,
+  "test_macro_f1": 0.5362,
+  "brier_score": 0.1833,
+  "threshold": 0.1271,
+  "targets": {
+    "auc": 0.85,
+    "macro_f1": 0.8
+  },
+  "status": "BELOW_TARGET",
+  "flags": [
+    "LOW_FEATURE_MODEL"
+  ],
+  "synthetic": false,
+  "missing_features": [
+    "bmi",
+    "family_diabetes",
+    "family_heart",
+    "family_hypertension",
+    "family_cancer",
+    "sugary_diet",
+    "freq_hunger",
+    "hard_lose_weight"
+  ],
+  "top_features_shap": {
+    "age": 1.3166,
+    "gender": 0.1759,
+    "sleep_hours": 0.071,
+    "exercise_level": 0.0622,
+    "smoking": 0.0498,
+    "alcohol": 0.02
+  },
+  "trained_at": "2026-10-15T13:40:31.727658+00:00"
+}

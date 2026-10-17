@@ -1,0 +1,44 @@
+{
+  "disease": "anemia",
+  "dataset": "NHANES 2017-2018 (J) \u2014 label = haemoglobin < WHO cut-off (13.0 M / 12.0 F); no lab features used (app-aligned). LOW_FEATURE_MODEL.",
+  "rows": 3000,
+  "positive_rate": 0.159,
+  "features": [
+    "gender",
+    "age",
+    "diet_quality",
+    "frequent_fatigue",
+    "pale_cold",
+    "lightheadedness",
+    "brittle_nails"
+  ],
+  "cv_auc_mean": 0.7594,
+  "cv_auc_std": 0.0321,
+  "test_auc": 0.7558,
+  "test_recall": 0.7474,
+  "test_precision": 0.2572,
+  "test_macro_f1": 0.5533,
+  "brier_score": 0.113,
+  "threshold": 0.1246,
+  "targets": {
+    "auc": 0.85,
+    "macro_f1": 0.8
+  },
+  "status": "BELOW_TARGET",
+  "flags": [
+    "LOW_FEATURE_MODEL"
+  ],
+  "synthetic": false,
+  "missing_features": [
+    "diet_quality",
+    "frequent_fatigue",
+    "pale_cold",
+    "lightheadedness",
+    "brittle_nails"
+  ],
+  "top_features_shap": {
+    "age": 0.8406,
+    "gender": 0.3102
+  },
+  "trained_at": "2026-10-14T19:15:28.375762+00:00"
+}

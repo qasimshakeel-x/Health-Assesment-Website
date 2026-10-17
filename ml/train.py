@@ -1,0 +1,379 @@
+"""ml/train.py — single config-driven training script (ML_TRAINING.md §7).
+
+Pipeline per disease (ML_TRAINING.md ground rules):
+  1. split FIRST (stratify) — test set touched once, at the very end
+  2. SMOTE inside the imblearn pipeline (only training folds)
+  3. imputer + scaler inside the pipeline (fit on training folds only)
+  4. sigmoid calibration → "70% risk" means ~70%
+  5. decision threshold from out-of-fold F2 (favours recall for a screening tool)
+  6. metrics + flags (SUSPICIOUS_POSSIBLE_LEAKAGE / SMALL_DATASET / HEAVY_IMBALANCE)
+  7. artifact → ml/models/<disease>.joblib  (band + see_doctor at serve time)
+  8. report → ml/reports/<disease>_metrics.json + <disease>_shap.png + SUMMARY.md
+
+Run:
+    python -m ml.train --disease diabetes
+    python -m ml.train --all
+    python -m ml.train --all --trials 30     # Optuna (CV only; never on test)
+    python -m ml.train --disease diabetes --no-shap   # low-RAM: skip shap/matplotlib
+    python -m ml.train --summary                      # rebuild SUMMARY.md only
+"""
+import argparse
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+
+import joblib
+import numpy as np
+import pandas as pd
+from imblearn.over_sampling import SMOTE
+from imblearn.pipeline import Pipeline as ImbPipeline
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import RandomForestClassifier, VotingClassifier
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (brier_score_loss, f1_score, precision_recall_curve,
+                             precision_score, recall_score, roc_auc_score)
+from sklearn.model_selection import (StratifiedKFold, cross_val_predict,
+                                     cross_val_score, train_test_split)
+from sklearn.pipeline import Pipeline as SkPipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from xgboost import XGBClassifier
+
+# optional deps — missing ones degrade gracefully
+try:
+    import optuna
+except Exception:  # pragma: no cover
+    optuna = None
+# NOTE: shap + matplotlib are imported *lazily* inside `shap_report()` below. On a low-RAM box
+# (this one has ~4 GB) importing shap (numba/llvmlite) + matplotlib adds ~300 MB peak, which is
+# enough to get the training process OOM-killed. `--no-shap` skips them entirely.
+
+try:
+    from ml.train_config import DISEASES, SEED, TARGET_AUC, TARGET_MACRO_F1
+except Exception:  # allow running `python ml/train.py` directly
+    from train_config import DISEASES, SEED, TARGET_AUC, TARGET_MACRO_F1  # type: ignore
+
+_HERE = Path(__file__).resolve().parent
+MODELS_DIR = _HERE / "models"
+REPORTS_DIR = _HERE / "reports"
+CARD_DIR = MODELS_DIR / "model_cards"
+DATA_DIR = _HERE / "data"
+for _d in (MODELS_DIR, REPORTS_DIR, CARD_DIR):
+    _d.mkdir(parents=True, exist_ok=True)
+
+
+# ---------- data ----------
+def _resolve(path: str) -> Path:
+    p = Path(path)
+    if p.is_absolute() or p.exists():
+        return p
+    if (DATA_DIR / p.name).exists():
+        return DATA_DIR / p.name
+    return _HERE.parent / p
+
+
+def load_data(cfg):
+    df = pd.read_csv(_resolve(cfg["data"]), na_values=["?", "", "NA", "nan"],
+                     skipinitialspace=True)
+    df.columns = [c.strip() for c in df.columns]
+    for c in df.select_dtypes(include="object").columns:
+        df[c] = df[c].astype(str).str.strip().replace({"nan": np.nan})
+
+    y = df[cfg["target"]]
+    if cfg.get("target_map"):
+        y = y.map(cfg["target_map"])
+    keep = y.notna()
+    df, y = df[keep], y[keep].astype(int)
+
+    feats = cfg["numeric"] + cfg.get("categorical", [])
+    X = df[feats].copy()
+    for c in cfg["numeric"]:
+        X[c] = pd.to_numeric(X[c], errors="coerce")
+    for c in cfg.get("zero_is_missing", []):
+        X.loc[X[c] == 0, c] = np.nan
+    return X, y
+
+
+# ---------- model ----------
+def make_preprocessor(cfg):
+    transformers = [("num", SkPipeline([("imp", SimpleImputer(strategy="median")),
+                                        ("sc", StandardScaler())]), cfg["numeric"])]
+    if cfg.get("categorical"):
+        transformers.append(("cat", SkPipeline([
+            ("imp", SimpleImputer(strategy="most_frequent")),
+            ("oh", OneHotEncoder(handle_unknown="ignore", sparse_output=False))]),
+            cfg["categorical"]))
+    return ColumnTransformer(transformers)
+
+
+def build_model(cfg, params=None, n_min=50):
+    # NOTE (ML_TRAINING.md §7): tree depth/size is deliberately bounded — with
+    # CalibratedClassifierCV(cv=3) the fitted ensemble is pickled 3x, so unbounded
+    # full-depth 300-tree forests made each artifact ~275 MB. Bounded trees keep the
+    # artifact in the low-MB range with no measurable AUC loss on these tabular sets.
+    p = {"rf_n": 120, "rf_depth": 8, "xgb_n": 120, "xgb_depth": 4,
+         "xgb_lr": 0.05, "lr_C": 1.0}
+    p.update(params or {})
+    ens = VotingClassifier(
+        [("rf", RandomForestClassifier(n_estimators=p["rf_n"], max_depth=p["rf_depth"],
+                                       min_samples_leaf=3, class_weight="balanced",
+                                       random_state=SEED, n_jobs=1)),
+         ("xgb", XGBClassifier(n_estimators=p["xgb_n"], max_depth=p["xgb_depth"],
+                               learning_rate=p["xgb_lr"], eval_metric="logloss",
+                               random_state=SEED, n_jobs=1)),
+         ("lr", LogisticRegression(C=p["lr_C"], max_iter=2000, class_weight="balanced"))],
+        voting="soft", weights=[0.4, 0.4, 0.2])
+    k = max(1, min(5, int(n_min * 0.6) - 1)) if n_min > 0 else 5
+    return ImbPipeline([("prep", make_preprocessor(cfg)),
+                        ("smote", SMOTE(k_neighbors=k, random_state=SEED)),
+                        ("clf", ens)])
+
+
+def tune(cfg, X, y, n_min, n_trials):
+    if n_trials <= 0 or optuna is None:
+        return {}
+    cv = StratifiedKFold(3, shuffle=True, random_state=SEED)
+
+    def objective(trial):
+        params = {
+            "rf_n": trial.suggest_int("rf_n", 150, 400),
+            "rf_depth": trial.suggest_int("rf_depth", 3, 12),
+            "xgb_n": trial.suggest_int("xgb_n", 150, 400),
+            "xgb_depth": trial.suggest_int("xgb_depth", 2, 6),
+            "xgb_lr": trial.suggest_float("xgb_lr", 0.01, 0.15, log=True),
+            "lr_C": trial.suggest_float("lr_C", 0.01, 5, log=True),
+        }
+        return cross_val_score(build_model(cfg, params, n_min), X, y,
+                               cv=cv, scoring="roc_auc").mean()
+
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    study = optuna.create_study(direction="maximize",
+                                sampler=optuna.samplers.TPESampler(seed=SEED))
+    study.optimize(objective, n_trials=n_trials)
+    return study.best_params
+
+
+def shap_report(cfg, X_tr, y_tr, name):
+    """Mean |SHAP| top-10 + a PNG, from a throwaway XGB on the training data (spec §8).
+
+    shap/matplotlib are imported here (not at module level) so `--no-shap` / low-RAM runs never
+    pay their ~300 MB import cost.
+    """
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        import shap
+    except Exception:  # missing optional dep → no report, training unaffected
+        return {}
+    try:
+        prep = make_preprocessor(cfg)
+        Xt = prep.fit_transform(X_tr)
+        names = [n.split("__", 1)[-1] for n in prep.get_feature_names_out()]
+        xgb = XGBClassifier(n_estimators=120, max_depth=4, learning_rate=0.05,
+                            eval_metric="logloss", random_state=SEED, n_jobs=1).fit(Xt, y_tr)
+        sv = shap.TreeExplainer(xgb).shap_values(Xt)
+        if isinstance(sv, list):
+            sv = sv[1] if len(sv) > 1 else sv[0]
+        imp = np.abs(sv).mean(axis=0)
+        top = sorted(zip(names, imp), key=lambda t: -t[1])[:10]
+        plt.figure(figsize=(6, 4))
+        plt.barh([t[0] for t in top][::-1], [float(t[1]) for t in top][::-1])
+        plt.title(f"{name}: mean |SHAP| (top 10)")
+        plt.tight_layout()
+        plt.savefig(REPORTS_DIR / f"{name}_shap.png", dpi=120)
+        plt.close()
+        return {n: round(float(v), 4) for n, v in top}
+    except Exception:
+        return {}
+
+
+# ---------- main ----------
+def train(name, trials=0, shap=True):
+    cfg = DISEASES[name]
+    X, y = load_data(cfg)
+    flags = []
+    if cfg.get("synthetic"):
+        # Ground Rule 1 deviation (project-owner request) — the dataset is generated, so the
+        # metrics below are NOT evidence of real-world performance. Labelled everywhere on purpose.
+        flags.append("SYNTHETIC_DATA")
+    if len(y) < 500:
+        flags.append("SMALL_DATASET")
+    if y.mean() < 0.10 or y.mean() > 0.90:
+        flags.append("HEAVY_IMBALANCE")
+
+    # 1) split FIRST
+    X_tr, X_te, y_tr, y_te = train_test_split(
+        X, y, test_size=0.2, stratify=y, random_state=SEED)
+    n_min = int(y_tr.value_counts().min()) if len(y_tr) else 0
+
+    # Honesty flag: features the source dataset never collected are all-NaN in training, so the
+    # imputer drops them and the model cannot use them even though the app asks for them.
+    all_feats = cfg["numeric"] + cfg.get("categorical", [])
+    missing_features = [c for c in all_feats if X_tr[c].isna().all()]
+    if missing_features:
+        flags.append("LOW_FEATURE_MODEL")
+
+    # 2) optional tuning (training data only)
+    params = tune(cfg, X_tr, y_tr, n_min, trials) if trials > 0 else {}
+
+    # 3) cross-validation on training data (5 folds — ML_TRAINING.md §7 / acceptance §10)
+    cv = StratifiedKFold(5, shuffle=True, random_state=SEED)
+    cv_scores = cross_val_score(build_model(cfg, params, n_min), X_tr, y_tr,
+                                cv=cv, scoring="roc_auc", n_jobs=1)
+
+    # 4) calibrated final model (SMOTE stays inside the pipeline).
+    #    cal_cv=3 (not 5): CalibratedClassifierCV pickles one full ensemble per fold, and this
+    #    box has ~4 GB RAM — 3 folds keeps peak memory + artifact size sane. The *reported*
+    #    cv_auc above still uses 5 folds, so the acceptance metric is spec-compliant.
+    cal_cv = StratifiedKFold(3, shuffle=True, random_state=SEED)
+    model = CalibratedClassifierCV(build_model(cfg, params, n_min),
+                                   method="sigmoid", cv=cal_cv)
+
+    # 5) threshold from out-of-fold F2 (recall-oriented)
+    oof = cross_val_predict(model, X_tr, y_tr, cv=cal_cv, method="predict_proba",
+                            n_jobs=1)[:, 1]
+    prec, rec, thr = precision_recall_curve(y_tr, oof)
+    f2 = (5 * prec * rec) / (4 * prec + rec + 1e-9)
+    threshold = float(thr[int(np.argmax(f2[:-1]))]) if len(thr) > 1 else 0.5
+
+    # 6) fit on all training data, evaluate ONCE on the untouched test set
+    model.fit(X_tr, y_tr)
+    proba = model.predict_proba(X_te)[:, 1]
+    pred = (proba >= threshold).astype(int)
+
+    test_auc = float(roc_auc_score(y_te, proba))
+    macro_f1 = float(f1_score(y_te, pred, average="macro"))
+    if test_auc > 0.97:
+        flags.append("SUSPICIOUS_POSSIBLE_LEAKAGE")
+    status = "PASS" if (test_auc >= TARGET_AUC and macro_f1 >= TARGET_MACRO_F1) else "BELOW_TARGET"
+
+    metrics = {
+        "disease": name,
+        "dataset": cfg.get("source_note", cfg["data"]),
+        "rows": int(len(y)),
+        "positive_rate": round(float(y.mean()), 4),
+        "features": cfg["numeric"] + cfg.get("categorical", []),
+        "cv_auc_mean": round(float(cv_scores.mean()), 4),
+        "cv_auc_std": round(float(cv_scores.std()), 4),
+        "test_auc": round(test_auc, 4),
+        "test_recall": round(float(recall_score(y_te, pred, zero_division=0)), 4),
+        "test_precision": round(float(precision_score(y_te, pred, zero_division=0)), 4),
+        "test_macro_f1": round(macro_f1, 4),
+        "brier_score": round(float(brier_score_loss(y_te, proba)), 4),
+        "threshold": round(threshold, 4),
+        "targets": {"auc": TARGET_AUC, "macro_f1": TARGET_MACRO_F1},
+        "status": status,
+        "flags": flags,
+        "synthetic": bool(cfg.get("synthetic")),
+        "missing_features": missing_features,
+        "top_features_shap": shap_report(cfg, X_tr, y_tr, name) if shap else {},
+        "trained_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    joblib.dump({"model": model, "numeric": cfg["numeric"],
+                 "categorical": cfg.get("categorical", []),
+                 "threshold": threshold, "meta": metrics},
+                MODELS_DIR / f"{name}.joblib", compress=3)
+    (REPORTS_DIR / f"{name}_metrics.json").write_text(json.dumps(metrics, indent=2),
+                                                      encoding="utf-8")
+
+    # model card (spec 09-ML-TRAINING-SPEC §1 step 10 shape)
+    card = {
+        "disease_key": name,
+        "trained_at": metrics["trained_at"].replace("+00:00", "Z"),
+        "dataset": metrics["dataset"],
+        "dataset_version": "v1",
+        "n_samples": metrics["rows"],
+        "metrics": {"auc_roc": test_auc, "macro_f1": macro_f1,
+                    "test_recall": metrics["test_recall"],
+                    "brier_score": metrics["brier_score"]},
+        "features": metrics["features"],
+        "threshold": metrics["threshold"],
+        "threshold_met": status == "PASS",
+        "flags": flags,
+        "known_limitations": ([
+            "SYNTHETIC DATA (ml/data/generate_synthetic.py, SEED=42) — ML_TRAINING.md Ground Rule "
+            "1 is deliberately deviated from here, at the project owner's request. Every metric "
+            "in this card is produced from generated data, NOT real-world evidence."
+        ] if cfg.get("synthetic") else [
+            "App-aligned projection of a real public dataset (ml/data/README.md) — not a "
+            "local clinical sample; revalidate on local data before clinical use"
+        ]) + [
+            ("Columns the source dataset never collected: "
+             + ", ".join(missing_features) + " — the app still asks these but the model "
+             "cannot use them (LOW_FEATURE_MODEL)") if missing_features else
+            "All app features are present in the source dataset",
+            "Screening and awareness tool only, not a diagnostic device",
+        ] + (["SUSPICIOUS_POSSIBLE_LEAKAGE: test AUC > 0.97 — investigate before trusting"]
+             if "SUSPICIOUS_POSSIBLE_LEAKAGE" in flags else []),
+    }
+    (CARD_DIR / f"{name}.json").write_text(json.dumps(card, indent=2), encoding="utf-8")
+
+    print(f"[{name}] AUC={test_auc:.3f} recall={metrics['test_recall']:.3f} "
+          f"F1={macro_f1:.3f} -> {status} {flags}")
+    return metrics
+
+
+def write_summary(all_metrics):
+    lines = ["# Training Summary", "",
+             "| Disease | Rows | CV AUC | Test AUC | Recall | Macro F1 | Brier | Status | Flags |",
+             "|---|---|---|---|---|---|---|---|---|"]
+    for m in all_metrics:
+        lines.append(f"| {m['disease']} | {m['rows']} | {m['cv_auc_mean']}±{m['cv_auc_std']} | "
+                     f"{m['test_auc']} | {m['test_recall']} | {m['test_macro_f1']} | "
+                     f"{m['brier_score']} | {m['status']} | {', '.join(m['flags']) or '-'} |")
+    # encoding pinned: the table carries "±" and the console locale on Windows is cp1252
+    (REPORTS_DIR / "SUMMARY.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def train_all(trials=0, shap=True):
+    """Train every ML disease (ML_TRAINING.md §2). Returns {disease: metrics}."""
+    results = {}
+    for name in DISEASES:
+        try:
+            results[name] = train(name, trials, shap=shap)
+        except Exception as e:  # keep going, report the failure honestly
+            print(f"[{name}] FAILED: {e!r}")
+    write_summary(list(results.values()))
+    return results
+
+
+def rebuild_summary():
+    """Rebuild SUMMARY.md from the existing `ml/reports/*_metrics.json` files.
+
+    `--all` is the only writer of SUMMARY.md, so a per-disease run (the low-RAM workflow on this
+    box: one `python -m ml.train --disease <name>` process at a time) would otherwise leave the
+    summary stale. This reads whatever metrics exist and regenerates the table.
+    """
+    metrics = []
+    for path in sorted(REPORTS_DIR.glob("*_metrics.json")):
+        try:
+            metrics.append(json.loads(path.read_text()))
+        except Exception:
+            continue
+    metrics.sort(key=lambda m: m.get("disease", ""))
+    write_summary(metrics)
+    return metrics
+
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--disease")
+    ap.add_argument("--all", action="store_true")
+    ap.add_argument("--summary", action="store_true",
+                    help="rebuild ml/reports/SUMMARY.md from existing *_metrics.json")
+    ap.add_argument("--no-shap", action="store_true",
+                    help="skip the SHAP report (saves ~300 MB peak on low-RAM machines)")
+    ap.add_argument("--trials", type=int, default=0)
+    args = ap.parse_args()
+    use_shap = not args.no_shap
+    if args.all:
+        train_all(args.trials, shap=use_shap)
+    elif args.summary:
+        rebuild_summary()
+    elif args.disease:
+        train(args.disease, args.trials, shap=use_shap)
+    else:
+        ap.error("pass --disease <name> or --all")

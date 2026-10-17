@@ -1,0 +1,43 @@
+{
+  "disease": "gad7",
+  "dataset": "Real GAD-7 questionnaire (776 rows, Figshare CC BY) \u2014 label = GAD-7 total >=10 (moderate+). Label is derived from the items BY DESIGN (mirrors the clinical rule the app uses), so a SUSPICIOUS_POSSIBLE_LEAKAGE flag is expected.",
+  "rows": 776,
+  "positive_rate": 0.2423,
+  "features": [
+    "gad1",
+    "gad2",
+    "gad3",
+    "gad4",
+    "gad5",
+    "gad6",
+    "gad7"
+  ],
+  "cv_auc_mean": 0.9968,
+  "cv_auc_std": 0.0026,
+  "test_auc": 0.9991,
+  "test_recall": 1.0,
+  "test_precision": 0.76,
+  "test_macro_f1": 0.905,
+  "brier_score": 0.0139,
+  "threshold": 0.1555,
+  "targets": {
+    "auc": 0.85,
+    "macro_f1": 0.8
+  },
+  "status": "PASS",
+  "flags": [
+    "SUSPICIOUS_POSSIBLE_LEAKAGE"
+  ],
+  "synthetic": false,
+  "missing_features": [],
+  "top_features_shap": {
+    "gad3": 1.2859,
+    "gad4": 0.8979,
+    "gad1": 0.8907,
+    "gad5": 0.8405,
+    "gad2": 0.7315,
+    "gad7": 0.6604,
+    "gad6": 0.4755
+  },
+  "trained_at": "2026-10-14T19:12:14.005472+00:00"
+}

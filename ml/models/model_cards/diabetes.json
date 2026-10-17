@@ -1,0 +1,39 @@
+{
+  "disease_key": "diabetes",
+  "trained_at": "2026-10-15T13:26:26.733165Z",
+  "dataset": "NHANES 2017-2018 (J) \u2014 label DIQ010 doctor-diagnosed diabetes; family history DIQ170. Symptoms not collected in NHANES (NaN).",
+  "dataset_version": "v1",
+  "n_samples": 3000,
+  "metrics": {
+    "auc_roc": 0.8754047247871447,
+    "macro_f1": 0.6540820070231835,
+    "test_recall": 0.8548,
+    "brier_score": 0.0772
+  },
+  "features": [
+    "age",
+    "gender",
+    "bmi",
+    "sleep_hours",
+    "exercise_level",
+    "smoking",
+    "alcohol",
+    "family_diabetes",
+    "family_heart",
+    "family_hypertension",
+    "family_cancer",
+    "freq_urination",
+    "excess_thirst",
+    "weight_loss"
+  ],
+  "threshold": 0.0761,
+  "threshold_met": false,
+  "flags": [
+    "LOW_FEATURE_MODEL"
+  ],
+  "known_limitations": [
+    "App-aligned projection of a real public dataset (ml/data/README.md) \u2014 not a local clinical sample; revalidate on local data before clinical use",
+    "Columns the source dataset never collected: family_heart, family_hypertension, family_cancer, freq_urination, excess_thirst, weight_loss \u2014 the app still asks these but the model cannot use them (LOW_FEATURE_MODEL)",
+    "Screening and awareness tool only, not a diagnostic device"
+  ]
+}

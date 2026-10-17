@@ -1,0 +1,45 @@
+{
+  "disease": "ckd",
+  "dataset": "UCI Chronic Kidney Disease (400 rows) \u2014 age/bp/dm/htn mapped to app vector; swelling/urination/fatigue symptoms not in UCI (NaN).",
+  "rows": 400,
+  "positive_rate": 0.625,
+  "features": [
+    "age",
+    "bp_systolic",
+    "diabetes_flag",
+    "hypertension_flag",
+    "ankle_swelling",
+    "urination_changes",
+    "ckd_fatigue"
+  ],
+  "cv_auc_mean": 0.9359,
+  "cv_auc_std": 0.0298,
+  "test_auc": 0.9547,
+  "test_recall": 0.98,
+  "test_precision": 0.7206,
+  "test_macro_f1": 0.6772,
+  "brier_score": 0.0699,
+  "threshold": 0.1556,
+  "targets": {
+    "auc": 0.85,
+    "macro_f1": 0.8
+  },
+  "status": "BELOW_TARGET",
+  "flags": [
+    "SMALL_DATASET",
+    "LOW_FEATURE_MODEL"
+  ],
+  "synthetic": false,
+  "missing_features": [
+    "ankle_swelling",
+    "urination_changes",
+    "ckd_fatigue"
+  ],
+  "top_features_shap": {
+    "hypertension_flag": 1.5317,
+    "diabetes_flag": 0.9498,
+    "bp_systolic": 0.766,
+    "age": 0.352
+  },
+  "trained_at": "2026-10-14T19:15:55.337999+00:00"
+}

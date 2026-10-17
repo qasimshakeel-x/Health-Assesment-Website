@@ -1,0 +1,44 @@
+{
+  "disease": "liver",
+  "dataset": "UCI ILPD liver patients (583 rows) \u2014 only age/gender app-available; ILPD has no alcohol/symptom columns. LOW_FEATURE_MODEL.",
+  "rows": 583,
+  "positive_rate": 0.7136,
+  "features": [
+    "age",
+    "gender",
+    "bmi",
+    "alcohol",
+    "jaundice",
+    "abdominal_pain",
+    "liver_fatigue"
+  ],
+  "cv_auc_mean": 0.6245,
+  "cv_auc_std": 0.026,
+  "test_auc": 0.6492,
+  "test_recall": 0.9398,
+  "test_precision": 0.7156,
+  "test_macro_f1": 0.4777,
+  "brier_score": 0.1963,
+  "threshold": 0.5173,
+  "targets": {
+    "auc": 0.85,
+    "macro_f1": 0.8
+  },
+  "status": "BELOW_TARGET",
+  "flags": [
+    "LOW_FEATURE_MODEL"
+  ],
+  "synthetic": false,
+  "missing_features": [
+    "bmi",
+    "alcohol",
+    "jaundice",
+    "abdominal_pain",
+    "liver_fatigue"
+  ],
+  "top_features_shap": {
+    "age": 0.7043,
+    "gender": 0.197
+  },
+  "trained_at": "2026-10-14T19:17:30.861896+00:00"
+}

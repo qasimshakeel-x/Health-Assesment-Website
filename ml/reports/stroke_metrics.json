@@ -1,0 +1,63 @@
+{
+  "disease": "stroke",
+  "dataset": "Kaggle stroke prediction (5110 rows, fedesoriano) \u2014 age/gender/bmi/smoking plus hypertension/heart_disease history flags; TIA/speech symptoms NaN.",
+  "rows": 5110,
+  "positive_rate": 0.0487,
+  "features": [
+    "age",
+    "gender",
+    "bmi",
+    "sleep_hours",
+    "exercise_level",
+    "smoking",
+    "alcohol",
+    "family_diabetes",
+    "family_heart",
+    "family_hypertension",
+    "family_cancer",
+    "bp_systolic",
+    "bp_diastolic",
+    "tia_symptoms",
+    "speech_difficulty",
+    "irregular_heartbeat"
+  ],
+  "cv_auc_mean": 0.821,
+  "cv_auc_std": 0.0167,
+  "test_auc": 0.8142,
+  "test_recall": 0.82,
+  "test_precision": 0.1171,
+  "test_macro_f1": 0.5058,
+  "brier_score": 0.0433,
+  "threshold": 0.0439,
+  "targets": {
+    "auc": 0.85,
+    "macro_f1": 0.8
+  },
+  "status": "BELOW_TARGET",
+  "flags": [
+    "HEAVY_IMBALANCE",
+    "LOW_FEATURE_MODEL"
+  ],
+  "synthetic": false,
+  "missing_features": [
+    "sleep_hours",
+    "exercise_level",
+    "alcohol",
+    "family_diabetes",
+    "family_cancer",
+    "bp_systolic",
+    "bp_diastolic",
+    "tia_symptoms",
+    "speech_difficulty",
+    "irregular_heartbeat"
+  ],
+  "top_features_shap": {
+    "age": 2.0011,
+    "bmi": 0.3019,
+    "family_hypertension": 0.0933,
+    "smoking": 0.064,
+    "gender": 0.0481,
+    "family_heart": 0.0268
+  },
+  "trained_at": "2026-10-14T19:10:32.816853+00:00"
+}

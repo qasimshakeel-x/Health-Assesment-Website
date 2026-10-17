@@ -1,0 +1,39 @@
+{
+  "disease": "pcos",
+  "dataset": "Kaggle PCOS (541 rows) \u2014 Age/BMI/cycle/weight-gain/hair/acne.",
+  "rows": 541,
+  "positive_rate": 0.3272,
+  "features": [
+    "age",
+    "bmi",
+    "irregular_periods",
+    "weight_gain",
+    "excess_hair",
+    "acne"
+  ],
+  "cv_auc_mean": 0.8412,
+  "cv_auc_std": 0.0259,
+  "test_auc": 0.872,
+  "test_recall": 0.8611,
+  "test_precision": 0.5962,
+  "test_macro_f1": 0.7523,
+  "brier_score": 0.1241,
+  "threshold": 0.2221,
+  "targets": {
+    "auc": 0.85,
+    "macro_f1": 0.8
+  },
+  "status": "BELOW_TARGET",
+  "flags": [],
+  "synthetic": false,
+  "missing_features": [],
+  "top_features_shap": {
+    "weight_gain": 0.7836,
+    "excess_hair": 0.7239,
+    "age": 0.5263,
+    "irregular_periods": 0.4533,
+    "acne": 0.3403,
+    "bmi": 0.3395
+  },
+  "trained_at": "2026-10-14T19:18:57.530929+00:00"
+}

@@ -1,0 +1,58 @@
+{
+  "disease": "hypertension",
+  "dataset": "NHANES 2017-2018 (J) \u2014 label = measured BP (mean SBP>=130 or DBP>=80); BP deliberately excluded from features (ML_TRAINING \u00a75 label-from-feature).",
+  "rows": 3000,
+  "positive_rate": 0.3523,
+  "features": [
+    "age",
+    "gender",
+    "bmi",
+    "sleep_hours",
+    "exercise_level",
+    "smoking",
+    "alcohol",
+    "family_diabetes",
+    "family_heart",
+    "family_hypertension",
+    "family_cancer",
+    "headaches",
+    "dizziness",
+    "blurred_vision"
+  ],
+  "cv_auc_mean": 0.8032,
+  "cv_auc_std": 0.016,
+  "test_auc": 0.8099,
+  "test_recall": 0.9668,
+  "test_precision": 0.4823,
+  "test_macro_f1": 0.6221,
+  "brier_score": 0.1664,
+  "threshold": 0.1117,
+  "targets": {
+    "auc": 0.85,
+    "macro_f1": 0.8
+  },
+  "status": "BELOW_TARGET",
+  "flags": [
+    "LOW_FEATURE_MODEL"
+  ],
+  "synthetic": false,
+  "missing_features": [
+    "family_diabetes",
+    "family_heart",
+    "family_hypertension",
+    "family_cancer",
+    "headaches",
+    "dizziness",
+    "blurred_vision"
+  ],
+  "top_features_shap": {
+    "age": 1.3899,
+    "bmi": 0.3536,
+    "gender": 0.2191,
+    "sleep_hours": 0.0582,
+    "exercise_level": 0.0291,
+    "smoking": 0.0212,
+    "alcohol": 0.0066
+  },
+  "trained_at": "2026-10-15T13:36:46.866800+00:00"
+}

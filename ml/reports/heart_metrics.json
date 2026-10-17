@@ -1,0 +1,59 @@
+{
+  "disease": "heart",
+  "dataset": "UCI Cleveland heart disease (303 rows) \u2014 age/gender/chest-pain only; Cleveland has no smoking/BMI/sleep/exercise columns (NaN). LOW_FEATURE_MODEL.",
+  "rows": 303,
+  "positive_rate": 0.4587,
+  "features": [
+    "age",
+    "gender",
+    "bmi",
+    "sleep_hours",
+    "exercise_level",
+    "smoking",
+    "alcohol",
+    "family_diabetes",
+    "family_heart",
+    "family_hypertension",
+    "family_cancer",
+    "chest_pain",
+    "short_breath",
+    "palpitations"
+  ],
+  "cv_auc_mean": 0.7742,
+  "cv_auc_std": 0.0338,
+  "test_auc": 0.7008,
+  "test_recall": 0.8214,
+  "test_precision": 0.5476,
+  "test_macro_f1": 0.5978,
+  "brier_score": 0.221,
+  "threshold": 0.3644,
+  "targets": {
+    "auc": 0.85,
+    "macro_f1": 0.8
+  },
+  "status": "BELOW_TARGET",
+  "flags": [
+    "SMALL_DATASET",
+    "LOW_FEATURE_MODEL"
+  ],
+  "synthetic": false,
+  "missing_features": [
+    "bmi",
+    "sleep_hours",
+    "exercise_level",
+    "smoking",
+    "alcohol",
+    "family_diabetes",
+    "family_heart",
+    "family_hypertension",
+    "family_cancer",
+    "short_breath",
+    "palpitations"
+  ],
+  "top_features_shap": {
+    "gender": 0.81,
+    "age": 0.8068,
+    "chest_pain": 0.5104
+  },
+  "trained_at": "2026-10-15T13:30:55.198910+00:00"
+}

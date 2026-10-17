@@ -1,0 +1,39 @@
+{
+  "disease_key": "obesity",
+  "trained_at": "2026-10-15T13:40:31.727658Z",
+  "dataset": "NHANES 2017-2018 (J) \u2014 label = measured BMI>=30; BMI deliberately excluded from features (ML_TRAINING \u00a75). LOW_FEATURE_MODEL.",
+  "dataset_version": "v1",
+  "n_samples": 3000,
+  "metrics": {
+    "auc_roc": 0.7217791005291005,
+    "macro_f1": 0.5362492910285924,
+    "test_recall": 0.9444,
+    "brier_score": 0.1833
+  },
+  "features": [
+    "age",
+    "gender",
+    "bmi",
+    "sleep_hours",
+    "exercise_level",
+    "smoking",
+    "alcohol",
+    "family_diabetes",
+    "family_heart",
+    "family_hypertension",
+    "family_cancer",
+    "sugary_diet",
+    "freq_hunger",
+    "hard_lose_weight"
+  ],
+  "threshold": 0.1271,
+  "threshold_met": false,
+  "flags": [
+    "LOW_FEATURE_MODEL"
+  ],
+  "known_limitations": [
+    "App-aligned projection of a real public dataset (ml/data/README.md) \u2014 not a local clinical sample; revalidate on local data before clinical use",
+    "Columns the source dataset never collected: bmi, family_diabetes, family_heart, family_hypertension, family_cancer, sugary_diet, freq_hunger, hard_lose_weight \u2014 the app still asks these but the model cannot use them (LOW_FEATURE_MODEL)",
+    "Screening and awareness tool only, not a diagnostic device"
+  ]
+}

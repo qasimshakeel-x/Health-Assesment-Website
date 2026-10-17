@@ -1,0 +1,35 @@
+{
+  "disease_key": "metabolic_syndrome",
+  "trained_at": "2026-10-14T19:13:06.486537Z",
+  "dataset": "NHANES 2017-2018 (J) \u2014 IDF metabolic syndrome label (>=3 of 5). Label and features share clinical inputs BY DESIGN (documented \u00a75 overlap); a SUSPICIOUS_POSSIBLE_LEAKAGE flag may appear.",
+  "dataset_version": "v1",
+  "n_samples": 3000,
+  "metrics": {
+    "auc_roc": 0.8980491220362719,
+    "macro_f1": 0.7245179063360881,
+    "test_recall": 0.9349,
+    "brier_score": 0.1146
+  },
+  "features": [
+    "age",
+    "gender",
+    "waist_circumference",
+    "bp_systolic",
+    "bp_diastolic",
+    "diet_quality",
+    "exercise_level",
+    "doctor_high_bp",
+    "doctor_high_sugar",
+    "frequent_thirst_urination"
+  ],
+  "threshold": 0.1465,
+  "threshold_met": false,
+  "flags": [
+    "LOW_FEATURE_MODEL"
+  ],
+  "known_limitations": [
+    "App-aligned projection of a real public dataset (ml/data/README.md) \u2014 not a local clinical sample; revalidate on local data before clinical use",
+    "Columns the source dataset never collected: diet_quality, frequent_thirst_urination \u2014 the app still asks these but the model cannot use them (LOW_FEATURE_MODEL)",
+    "Screening and awareness tool only, not a diagnostic device"
+  ]
+}

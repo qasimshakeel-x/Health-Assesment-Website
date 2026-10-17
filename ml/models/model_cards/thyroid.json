@@ -1,0 +1,33 @@
+{
+  "disease_key": "thyroid",
+  "trained_at": "2026-10-14T19:10:11.966560Z",
+  "dataset": "UCI hypothyroid (3163 rows) \u2014 only age/gender app-available; TSH/T3/TT4 labs are not collected by the app. LOW_FEATURE_MODEL.",
+  "dataset_version": "v1",
+  "n_samples": 3163,
+  "metrics": {
+    "auc_roc": 0.5364842454394694,
+    "macro_f1": 0.2928108431464136,
+    "test_recall": 0.6333,
+    "brier_score": 0.045
+  },
+  "features": [
+    "age",
+    "gender",
+    "bmi",
+    "fatigue",
+    "weight_change",
+    "temperature_issues",
+    "hair_skin"
+  ],
+  "threshold": 0.0421,
+  "threshold_met": false,
+  "flags": [
+    "HEAVY_IMBALANCE",
+    "LOW_FEATURE_MODEL"
+  ],
+  "known_limitations": [
+    "App-aligned projection of a real public dataset (ml/data/README.md) \u2014 not a local clinical sample; revalidate on local data before clinical use",
+    "Columns the source dataset never collected: bmi, fatigue, weight_change, temperature_issues, hair_skin \u2014 the app still asks these but the model cannot use them (LOW_FEATURE_MODEL)",
+    "Screening and awareness tool only, not a diagnostic device"
+  ]
+}

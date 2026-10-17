@@ -1,0 +1,33 @@
+{
+  "disease_key": "gad7",
+  "trained_at": "2026-10-14T19:12:14.005472Z",
+  "dataset": "Real GAD-7 questionnaire (776 rows, Figshare CC BY) \u2014 label = GAD-7 total >=10 (moderate+). Label is derived from the items BY DESIGN (mirrors the clinical rule the app uses), so a SUSPICIOUS_POSSIBLE_LEAKAGE flag is expected.",
+  "dataset_version": "v1",
+  "n_samples": 776,
+  "metrics": {
+    "auc_roc": 0.9991079393398751,
+    "macro_f1": 0.9050324675324675,
+    "test_recall": 1.0,
+    "brier_score": 0.0139
+  },
+  "features": [
+    "gad1",
+    "gad2",
+    "gad3",
+    "gad4",
+    "gad5",
+    "gad6",
+    "gad7"
+  ],
+  "threshold": 0.1555,
+  "threshold_met": true,
+  "flags": [
+    "SUSPICIOUS_POSSIBLE_LEAKAGE"
+  ],
+  "known_limitations": [
+    "App-aligned projection of a real public dataset (ml/data/README.md) \u2014 not a local clinical sample; revalidate on local data before clinical use",
+    "All app features are present in the source dataset",
+    "Screening and awareness tool only, not a diagnostic device",
+    "SUSPICIOUS_POSSIBLE_LEAKAGE: test AUC > 0.97 \u2014 investigate before trusting"
+  ]
+}

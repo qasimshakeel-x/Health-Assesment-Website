@@ -1,0 +1,50 @@
+{
+  "disease": "metabolic_syndrome",
+  "dataset": "NHANES 2017-2018 (J) \u2014 IDF metabolic syndrome label (>=3 of 5). Label and features share clinical inputs BY DESIGN (documented \u00a75 overlap); a SUSPICIOUS_POSSIBLE_LEAKAGE flag may appear.",
+  "rows": 3000,
+  "positive_rate": 0.2817,
+  "features": [
+    "age",
+    "gender",
+    "waist_circumference",
+    "bp_systolic",
+    "bp_diastolic",
+    "diet_quality",
+    "exercise_level",
+    "doctor_high_bp",
+    "doctor_high_sugar",
+    "frequent_thirst_urination"
+  ],
+  "cv_auc_mean": 0.9027,
+  "cv_auc_std": 0.0072,
+  "test_auc": 0.898,
+  "test_recall": 0.9349,
+  "test_precision": 0.518,
+  "test_macro_f1": 0.7245,
+  "brier_score": 0.1146,
+  "threshold": 0.1465,
+  "targets": {
+    "auc": 0.85,
+    "macro_f1": 0.8
+  },
+  "status": "BELOW_TARGET",
+  "flags": [
+    "LOW_FEATURE_MODEL"
+  ],
+  "synthetic": false,
+  "missing_features": [
+    "diet_quality",
+    "frequent_thirst_urination"
+  ],
+  "top_features_shap": {
+    "waist_circumference": 1.1823,
+    "bp_systolic": 0.6855,
+    "doctor_high_bp": 0.5259,
+    "doctor_high_sugar": 0.4553,
+    "age": 0.4252,
+    "bp_diastolic": 0.1136,
+    "gender": 0.1062,
+    "exercise_level": 0.0554
+  },
+  "trained_at": "2026-10-14T19:13:06.486537+00:00"
+}

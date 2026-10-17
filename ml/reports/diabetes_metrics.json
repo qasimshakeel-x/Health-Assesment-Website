@@ -1,0 +1,58 @@
+{
+  "disease": "diabetes",
+  "dataset": "NHANES 2017-2018 (J) \u2014 label DIQ010 doctor-diagnosed diabetes; family history DIQ170. Symptoms not collected in NHANES (NaN).",
+  "rows": 3000,
+  "positive_rate": 0.1027,
+  "features": [
+    "age",
+    "gender",
+    "bmi",
+    "sleep_hours",
+    "exercise_level",
+    "smoking",
+    "alcohol",
+    "family_diabetes",
+    "family_heart",
+    "family_hypertension",
+    "family_cancer",
+    "freq_urination",
+    "excess_thirst",
+    "weight_loss"
+  ],
+  "cv_auc_mean": 0.8861,
+  "cv_auc_std": 0.0235,
+  "test_auc": 0.8754,
+  "test_recall": 0.8548,
+  "test_precision": 0.3011,
+  "test_macro_f1": 0.6541,
+  "brier_score": 0.0772,
+  "threshold": 0.0761,
+  "targets": {
+    "auc": 0.85,
+    "macro_f1": 0.8
+  },
+  "status": "BELOW_TARGET",
+  "flags": [
+    "LOW_FEATURE_MODEL"
+  ],
+  "synthetic": false,
+  "missing_features": [
+    "family_heart",
+    "family_hypertension",
+    "family_cancer",
+    "freq_urination",
+    "excess_thirst",
+    "weight_loss"
+  ],
+  "top_features_shap": {
+    "age": 1.7129,
+    "bmi": 0.6312,
+    "family_diabetes": 0.3363,
+    "exercise_level": 0.104,
+    "smoking": 0.0591,
+    "gender": 0.0555,
+    "sleep_hours": 0.0457,
+    "alcohol": 0.0059
+  },
+  "trained_at": "2026-10-15T13:26:26.733165+00:00"
+}

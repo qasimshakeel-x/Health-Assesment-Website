@@ -1,0 +1,33 @@
+{
+  "disease_key": "ckd",
+  "trained_at": "2026-10-14T19:15:55.337999Z",
+  "dataset": "UCI Chronic Kidney Disease (400 rows) \u2014 age/bp/dm/htn mapped to app vector; swelling/urination/fatigue symptoms not in UCI (NaN).",
+  "dataset_version": "v1",
+  "n_samples": 400,
+  "metrics": {
+    "auc_roc": 0.9546666666666667,
+    "macro_f1": 0.6771589991928975,
+    "test_recall": 0.98,
+    "brier_score": 0.0699
+  },
+  "features": [
+    "age",
+    "bp_systolic",
+    "diabetes_flag",
+    "hypertension_flag",
+    "ankle_swelling",
+    "urination_changes",
+    "ckd_fatigue"
+  ],
+  "threshold": 0.1556,
+  "threshold_met": false,
+  "flags": [
+    "SMALL_DATASET",
+    "LOW_FEATURE_MODEL"
+  ],
+  "known_limitations": [
+    "App-aligned projection of a real public dataset (ml/data/README.md) \u2014 not a local clinical sample; revalidate on local data before clinical use",
+    "Columns the source dataset never collected: ankle_swelling, urination_changes, ckd_fatigue \u2014 the app still asks these but the model cannot use them (LOW_FEATURE_MODEL)",
+    "Screening and awareness tool only, not a diagnostic device"
+  ]
+}

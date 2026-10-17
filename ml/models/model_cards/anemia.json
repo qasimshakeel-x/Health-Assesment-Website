@@ -1,0 +1,32 @@
+{
+  "disease_key": "anemia",
+  "trained_at": "2026-10-14T19:15:28.375762Z",
+  "dataset": "NHANES 2017-2018 (J) \u2014 label = haemoglobin < WHO cut-off (13.0 M / 12.0 F); no lab features used (app-aligned). LOW_FEATURE_MODEL.",
+  "dataset_version": "v1",
+  "n_samples": 3000,
+  "metrics": {
+    "auc_roc": 0.7558103178738926,
+    "macro_f1": 0.5532564483562503,
+    "test_recall": 0.7474,
+    "brier_score": 0.113
+  },
+  "features": [
+    "gender",
+    "age",
+    "diet_quality",
+    "frequent_fatigue",
+    "pale_cold",
+    "lightheadedness",
+    "brittle_nails"
+  ],
+  "threshold": 0.1246,
+  "threshold_met": false,
+  "flags": [
+    "LOW_FEATURE_MODEL"
+  ],
+  "known_limitations": [
+    "App-aligned projection of a real public dataset (ml/data/README.md) \u2014 not a local clinical sample; revalidate on local data before clinical use",
+    "Columns the source dataset never collected: diet_quality, frequent_fatigue, pale_cold, lightheadedness, brittle_nails \u2014 the app still asks these but the model cannot use them (LOW_FEATURE_MODEL)",
+    "Screening and awareness tool only, not a diagnostic device"
+  ]
+}
