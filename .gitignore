@@ -13,8 +13,20 @@ build/
 # Environment
 .env
 
+# Runtime logs, caches & scratch (never commit)
+logs/
+*.log
+*.rdb
+frontend/vite*.log
+
 # ML models (large files)
 ml/models/pkl/
+ml/models/*.joblib
+# training scratch logs; keep the metrics JSON, SUMMARY.md and *_shap.png evidence
+ml/reports/_logs/
+
+# ML raw datasets (NHANES .xpt, ~26MB) — regenerate with ml/data/prepare_real.py
+ml/data/real/
 
 # Database
 *.db
