@@ -1,5 +1,6 @@
 import React, { useRef, useMemo, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
+import { useTheme } from '../context/ThemeContext';
 import * as THREE from 'three';
 
 // ── Color palette that shifts with scroll ──
@@ -229,6 +230,8 @@ function FloatingOrbs({ scrollProgress }) {
 // ── Main Export ──
 export default function ScrollBackground({ enabled = true }) {
   const scrollProgress = useRef(0);
+  const { theme } = useTheme();
+  const sceneBg = theme === 'light' ? '#f4f3ee' : '#0a0f1a';
 
   useEffect(() => {
     if (!enabled) return;
@@ -251,7 +254,7 @@ export default function ScrollBackground({ enabled = true }) {
         gl={{ antialias: true, alpha: true }}
         style={{ background: 'transparent' }}
       >
-        <color attach="background" args={['#0a0f1a']} />
+        <color attach="background" args={[sceneBg]} />
         <ambientLight intensity={0.5} />
         <Particles count={250} scrollProgress={scrollProgress} />
         <DNAHelix scrollProgress={scrollProgress} />

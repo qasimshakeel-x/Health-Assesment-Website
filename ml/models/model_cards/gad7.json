@@ -1,14 +1,28 @@
 {
   "disease_key": "gad7",
-  "trained_at": "2026-10-14T19:12:14.005472Z",
+  "trained_at": "2026-10-17T17:28:54.015274Z",
   "dataset": "Real GAD-7 questionnaire (776 rows, Figshare CC BY) \u2014 label = GAD-7 total >=10 (moderate+). Label is derived from the items BY DESIGN (mirrors the clinical rule the app uses), so an EXPECTED_LEAKAGE_LABEL_FROM_FEATURES flag is expected.",
   "dataset_version": "v1",
   "n_samples": 776,
   "metrics": {
     "auc_roc": 0.9991079393398751,
+    "pr_auc": 0.9974937343358395,
     "macro_f1": 0.9050324675324675,
     "test_recall": 1.0,
-    "brier_score": 0.0139
+    "test_precision": 0.76,
+    "test_specificity": 0.8983,
+    "brier_score": 0.0139,
+    "brier_baseline": 0.1843,
+    "brier_skill_score": 0.9248,
+    "ece": 0.0412,
+    "auc_ci95": [
+      0.9968,
+      1.0
+    ],
+    "macro_f1_ci95": [
+      0.855,
+      0.9487
+    ]
   },
   "features": [
     "gad1",
@@ -20,14 +34,16 @@
     "gad7"
   ],
   "threshold": 0.1555,
-  "threshold_met": true,
+  "threshold_rule": "max_f2",
+  "threshold_met": false,
   "flags": [
-    "EXPECTED_LEAKAGE_LABEL_FROM_FEATURES"
+    "EXPECTED_LEAKAGE_LABEL_FROM_FEATURES",
+    "RULE_EQUIVALENT_MODEL"
   ],
   "known_limitations": [
     "App-aligned projection of a real public dataset (ml/data/README.md) \u2014 not a local clinical sample; revalidate on local data before clinical use",
     "All app features are present in the source dataset",
     "Screening and awareness tool only, not a diagnostic device",
-    "EXPECTED_LEAKAGE_LABEL_FROM_FEATURES: the label is derived from these very features by design (it mirrors the app's clinical scoring rule), so the high AUC is expected and the model is mathematically equivalent to the rule \u2014 it adds no new signal"
+    "RULE_EQUIVALENT_MODEL: the label is derived from these very features by design (PHQ-9/GAD-7 item sum >= 10), so the 'model' is mathematically the clinical rule. It is trained for back-compatibility but is NOT an accuracy claim \u2014 the app serves the rule directly (status RULE_SERVED)."
   ]
 }

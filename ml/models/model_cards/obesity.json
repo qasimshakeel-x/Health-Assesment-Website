@@ -1,14 +1,28 @@
 {
   "disease_key": "obesity",
-  "trained_at": "2026-10-15T13:40:31.727658Z",
+  "trained_at": "2026-10-18T15:26:48.206429Z",
   "dataset": "NHANES 2017-2018 (J) \u2014 label = measured BMI>=30; BMI deliberately excluded from features (ML_TRAINING \u00a75). LOW_FEATURE_MODEL.",
   "dataset_version": "v1",
   "n_samples": 3000,
   "metrics": {
-    "auc_roc": 0.7217791005291005,
-    "macro_f1": 0.5362492910285924,
-    "test_recall": 0.9444,
-    "brier_score": 0.1833
+    "auc_roc": 0.71359126984127,
+    "pr_auc": 0.4251757704235521,
+    "macro_f1": 0.5411045197033033,
+    "test_recall": 0.9611,
+    "test_precision": 0.3923,
+    "test_specificity": 0.3619,
+    "brier_score": 0.1833,
+    "brier_baseline": 0.21,
+    "brier_skill_score": 0.1273,
+    "ece": 0.0289,
+    "auc_ci95": [
+      0.6713,
+      0.7518
+    ],
+    "macro_f1_ci95": [
+      0.5033,
+      0.5783
+    ]
   },
   "features": [
     "age",
@@ -26,7 +40,8 @@
     "freq_hunger",
     "hard_lose_weight"
   ],
-  "threshold": 0.1271,
+  "threshold": 0.0988,
+  "threshold_rule": "max_f2",
   "threshold_met": false,
   "flags": [
     "LOW_FEATURE_MODEL"

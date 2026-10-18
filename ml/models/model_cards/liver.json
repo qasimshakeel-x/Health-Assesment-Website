@@ -1,14 +1,28 @@
 {
   "disease_key": "liver",
-  "trained_at": "2026-10-14T19:17:30.861896Z",
-  "dataset": "UCI ILPD liver patients (583 rows) \u2014 only age/gender app-available; ILPD has no alcohol/symptom columns. LOW_FEATURE_MODEL.",
+  "trained_at": "2026-10-18T14:01:53.745760Z",
+  "dataset": "NHANES 2013-2018 (H+I+J, 17,020 rows, 4.6% positive) - label MCQ160L = ever told any liver condition; age / gender / BMI / alcohol (ALQ ever-drink) / jaundice (MCQ203) are real app columns; abdominal-pain & fatigue are not collected in NHANES (NaN). Replaces the 583-row UCI ILPD set (age/gender only). LOW_FEATURE_MODEL.",
   "dataset_version": "v1",
-  "n_samples": 583,
+  "n_samples": 17020,
   "metrics": {
-    "auc_roc": 0.6491849751948973,
-    "macro_f1": 0.4776785714285714,
-    "test_recall": 0.9398,
-    "brier_score": 0.1963
+    "auc_roc": 0.7357982576763658,
+    "pr_auc": 0.20926212559620105,
+    "macro_f1": 0.6400993850111896,
+    "test_recall": 0.2357,
+    "test_precision": 0.4353,
+    "test_specificity": 0.9852,
+    "brier_score": 0.0408,
+    "brier_baseline": 0.044,
+    "brier_skill_score": 0.0729,
+    "ece": 0.0114,
+    "auc_ci95": [
+      0.6949,
+      0.7756
+    ],
+    "macro_f1_ci95": [
+      0.6037,
+      0.6765
+    ]
   },
   "features": [
     "age",
@@ -19,14 +33,16 @@
     "abdominal_pain",
     "liver_fatigue"
   ],
-  "threshold": 0.5173,
+  "threshold": 0.1086,
+  "threshold_rule": "max_f2_s.t._precision>=0.3&rate>=0.02",
   "threshold_met": false,
   "flags": [
+    "HEAVY_IMBALANCE",
     "LOW_FEATURE_MODEL"
   ],
   "known_limitations": [
     "App-aligned projection of a real public dataset (ml/data/README.md) \u2014 not a local clinical sample; revalidate on local data before clinical use",
-    "Columns the source dataset never collected: bmi, alcohol, jaundice, abdominal_pain, liver_fatigue \u2014 the app still asks these but the model cannot use them (LOW_FEATURE_MODEL)",
+    "Columns the source dataset never collected: abdominal_pain, liver_fatigue \u2014 the app still asks these but the model cannot use them (LOW_FEATURE_MODEL)",
     "Screening and awareness tool only, not a diagnostic device"
   ]
 }

@@ -4,6 +4,132 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   THEME TOKENS
+   Dark = default (original design). Light = off-white.
+   html.light pe in variables ka override hota hai, aur Tailwind
+   ki common utilities bhi neeche `.light` block mein remap hoti hain.
+   ============================================================ */
+:root {
+  --bg: #0a0f1a;
+  --text: #e2e8f0;
+  --text-strong: #ffffff;
+  --text-soft: #d1d5db;
+  --text-muted: #9ca3af;
+
+  --hover-bg: rgba(255, 255, 255, 0.05);
+  --border-faint: rgba(255, 255, 255, 0.05);
+  --border-subtle: rgba(255, 255, 255, 0.10);
+
+  --surface-50: rgba(255, 255, 255, 0.05);
+  --surface-100: rgba(255, 255, 255, 0.10);
+  --surface-200: rgba(255, 255, 255, 0.15);
+  --surface-solid: rgba(15, 25, 40, 0.95);
+
+  --glass-bg: rgba(15, 25, 40, 0.7);
+  --glass-border: rgba(46, 125, 50, 0.2);
+  --glass-light-bg: rgba(255, 255, 255, 0.05);
+  --glass-light-border: rgba(255, 255, 255, 0.08);
+
+  --select-bg: #0f1928;
+  --select-text: #e2e8f0;
+
+  --accent-text: #81C784;
+  --accent-tint: rgba(46, 125, 50, 0.20);
+  --accent-tint-soft: rgba(46, 125, 50, 0.10);
+  --accent-border-soft: rgba(46, 125, 50, 0.30);
+  --accent-border: rgba(46, 125, 50, 0.40);
+
+  --danger-text: #f87171;
+  --success-text: #4ade80;
+
+  --range-track: rgba(255, 255, 255, 0.10);
+  --range-thumb: #2E7D32;
+  --range-thumb-border: #0a0f1a;
+
+  --scroll-track: rgba(0, 0, 0, 0.2);
+  --scroll-thumb: #2E7D32;
+  --scroll-thumb-hover: #66BB6A;
+
+  --gauge-ring: rgba(255, 255, 255, 0.06);
+  --scene-bg: #0a0f1a;
+
+  /* Assessment cards (HealthForm) — default thora transparent + halka blur
+     taake peeche ka 3D bg animation dikhe. Hover pe: SIMPLE WHITE frosted
+     glass (bas white tint + zyada blur — green wash hata diya kyunki woh
+     "ajeeb" lag raha tha) aur BORDER GREEN ho jata hai.
+     NOTE: dark bg pe white alpha kam (0.10) — zyada karne pe white text wash
+     out ho jata; light mode mein white zyada (0.72) kyunki text wahan dark hai.
+     Shadow gehri + halka green glow (border ke saath match karta hai). */
+  --assess-bg: rgba(15, 25, 40, 0.5);
+  --assess-bg-hover: rgba(255, 255, 255, 0.1);
+  --assess-border-hover: rgba(255, 255, 255, 0.92);
+  --assess-border-glow: rgba(255, 255, 255, 0.95);
+  --assess-blur: 14px;
+  --assess-blur-hover: 40px;
+  --assess-shadow: 0 8px 26px rgba(0, 0, 0, 0.45);
+  --assess-shadow-hover: 0 28px 60px -12px rgba(0, 0, 0, 0.95), 0 12px 28px -8px rgba(0, 0, 0, 0.85), 0 0 34px -8px rgba(46, 125, 50, 0.45);
+}
+
+/* ============================================================
+   LIGHT (OFF-WHITE) THEME
+   ============================================================ */
+html.light {
+  --bg: #f4f3ee;
+  --text: #1f2937;
+  --text-strong: #111827;
+  --text-soft: #4b5563;
+  --text-muted: #6b7280;
+
+  --hover-bg: rgba(17, 24, 39, 0.06);
+  --border-faint: rgba(17, 24, 39, 0.07);
+  --border-subtle: rgba(17, 24, 39, 0.12);
+
+  --surface-50: rgba(17, 24, 39, 0.04);
+  --surface-100: rgba(17, 24, 39, 0.07);
+  --surface-200: rgba(17, 24, 39, 0.12);
+  --surface-solid: rgba(255, 255, 255, 0.95);
+
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(27, 94, 32, 0.18);
+  --glass-light-bg: rgba(255, 255, 255, 0.55);
+  --glass-light-border: rgba(17, 24, 39, 0.08);
+
+  --select-bg: #ffffff;
+  --select-text: #1f2937;
+
+  --accent-text: #1B5E20;
+  --accent-tint: rgba(46, 125, 50, 0.14);
+  --accent-tint-soft: rgba(46, 125, 50, 0.10);
+  --accent-border-soft: rgba(46, 125, 50, 0.30);
+  --accent-border: rgba(46, 125, 50, 0.35);
+
+  --danger-text: #dc2626;
+  --success-text: #16a34a;
+
+  --range-track: rgba(17, 24, 39, 0.12);
+  --range-thumb: #256427;
+  --range-thumb-border: #f4f3ee;
+
+  --scroll-track: rgba(17, 24, 39, 0.08);
+  --scroll-thumb: #256427;
+  --scroll-thumb-hover: #2E7D32;
+
+  --gauge-ring: rgba(17, 24, 39, 0.08);
+  --scene-bg: #f4f3ee;
+
+  /* Light mode: hover pe bhi wahi — simple WHITE frosted glass (bg thora zyada
+     opaque) aur BORDER GREEN. Dark text yahan perfectly readable rehta hai. */
+  --assess-bg: rgba(255, 255, 255, 0.5);
+  --assess-bg-hover: rgba(255, 255, 255, 0.72);
+  --assess-border-hover: rgba(17, 24, 39, 0.85);
+  --assess-border-glow: rgba(17, 24, 39, 0.95);
+  --assess-blur: 14px;
+  --assess-blur-hover: 40px;
+  --assess-shadow: 0 6px 22px rgba(17, 24, 39, 0.07);
+  --assess-shadow-hover: 0 26px 55px -12px rgba(17, 24, 39, 0.32), 0 10px 24px -8px rgba(17, 24, 39, 0.18);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -16,10 +142,11 @@ html {
 
 body {
   font-family: 'Inter', system-ui, sans-serif;
-  background: #0a0f1a;
-  color: #e2e8f0;
+  background: var(--bg);
+  color: var(--text);
   overflow-x: hidden;
   min-height: 100vh;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 #root {
@@ -28,24 +155,24 @@ body {
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
-::-webkit-scrollbar-thumb { background: #2E7D32; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #66BB6A; }
+::-webkit-scrollbar-track { background: var(--scroll-track); }
+::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); }
 
 /* Glass morphism */
 .glass {
-  background: rgba(15, 25, 40, 0.7);
+  background: var(--glass-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(46, 125, 50, 0.2);
+  border: 1px solid var(--glass-border);
   border-radius: 16px;
 }
 
 .glass-light {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--glass-light-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-light-border);
   border-radius: 12px;
 }
 
@@ -60,9 +187,15 @@ body {
   50% { transform: translateY(-10px); }
 }
 
+/* NOTE: `to` mein transform JAAN-BOOJH kar nahi likha. Warna `forwards`
+   ki wajah se animation ke baad bhi `transform: translateY(0)` retain reh
+   jata hai, aur transform wala koi bhi ancestor `backdrop-filter` ka
+   backdrop-root ban jata hai → glass cards ke peeche ka blur kaam karna
+   band kar deta. Missing property underlying value (= none) pe interpolate
+   hoti hai, is liye visual bilkul same rehta hai. */
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(30px); }
-  to { opacity: 1; transform: translateY(0); }
+  to { opacity: 1; }
 }
 
 .animate-slide-up {
@@ -73,18 +206,35 @@ body {
   animation: float 6s ease-in-out infinite;
 }
 
-/* Button styles */
+/* Button styles
+   NOTE: .btn-primary/.btn-secondary/.input-field mein color-utilities
+   `@apply` se jaan-boojh kar NAHI kiye — kyunki is file mein `html.light`
+   custom overrides hain, aur Tailwind ka `@apply` un custom rules ko bhi
+   resolve kar leta hai. Natija: `@apply text-white` ki wajah se ek aisa
+   light-scoped rule ban jata tha jo primary button ke green background pe
+   dark text laga deta (contrast kharab). Isliye colors explicit CSS vars se. */
 .btn-primary {
-  @apply bg-primary-500 hover:bg-primary-600 text-white font-semibold px-6 py-3 rounded-xl transition-all duration-300 shadow-lg hover:shadow-primary-500/25;
+  @apply bg-primary-500 hover:bg-primary-600 font-semibold px-6 py-3 rounded-xl transition-all duration-300 shadow-lg hover:shadow-primary-500/25;
+  color: #ffffff;
 }
 
 .btn-secondary {
-  @apply bg-surface-100 hover:bg-surface-200 text-white font-medium px-5 py-2.5 rounded-xl transition-all duration-300 border border-white/10;
+  @apply font-medium px-5 py-2.5 rounded-xl transition-all duration-300 border;
+  background-color: var(--surface-100);
+  border-color: var(--border-subtle);
+  color: var(--text-strong);
+}
+
+.btn-secondary:hover {
+  background-color: var(--surface-200);
 }
 
 /* Input styles */
 .input-field {
-  @apply w-full bg-surface-50 border border-white/10 rounded-xl pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all duration-300;
+  @apply w-full rounded-xl pr-4 py-3 placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all duration-300;
+  background-color: var(--surface-50);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-strong);
   padding-left: 3.5rem;
 }
 
@@ -100,8 +250,8 @@ select.input-field {
 }
 
 select.input-field option {
-  background: #0f1928;
-  color: #e2e8f0;
+  background: var(--select-bg);
+  color: var(--select-text);
   padding: 8px 12px;
 }
 
@@ -115,7 +265,7 @@ input[type="range"] {
   appearance: none;
   width: 100%;
   height: 6px;
-  background: rgba(255,255,255,0.1);
+  background: var(--range-track);
   border-radius: 3px;
   outline: none;
 }
@@ -126,13 +276,21 @@ input[type="range"]::-webkit-slider-thumb {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #2E7D32;
+  background: var(--range-thumb);
   cursor: pointer;
-  border: 3px solid #0a0f1a;
+  border: 3px solid var(--range-thumb-border);
   box-shadow: 0 0 10px rgba(46, 125, 50, 0.5);
 }
 
-/* Canvas container for Three.js */
+/* SVG gauge track ring (Dashboard) — var() SVG presentation attribute mein
+   kaam nahi karta, isliye CSS class se set hoti hai. */
+.gauge-track {
+  stroke: var(--gauge-ring);
+}
+
+/* Canvas container for Three.js — poore page ka background layer.
+   position:fixed + z-index:0 rakhta hai taake content (main, z-10) ke
+   PEECHE rahe. NOTE: yeh layer hamesha page ke peeche hi rehni chahiye. */
 .three-canvas-container {
   position: fixed;
   top: 0;
@@ -146,3 +304,148 @@ input[type="range"]::-webkit-slider-thumb {
 .three-canvas-container canvas {
   pointer-events: auto;
 }
+
+/* ============================================================
+   LIGHT THEME OVERRIDES — Tailwind utilities remap.
+   Har selector `html.light` ke neeche hai isliye specificity higher
+   hai (0,2,x) vs Tailwind ke (0,1,x), bina !important ke.
+   ============================================================ */
+
+/* --- Text colors --- */
+html.light .text-white { color: var(--text-strong); }
+html.light .hover\:text-white:hover { color: var(--text-strong); }
+html.light .text-gray-200 { color: var(--text); }
+html.light .text-gray-300 { color: var(--text-soft); }
+html.light .text-gray-400 { color: var(--text-muted); }
+
+html.light .text-primary-200 { color: var(--accent-text); }
+html.light .text-primary-300 { color: var(--accent-text); }
+html.light .hover\:text-primary-200:hover { color: var(--accent-text); }
+html.light .hover\:text-primary-300:hover { color: var(--accent-text); }
+
+html.light .text-red-300 { color: var(--danger-text); }
+html.light .text-red-400 { color: var(--danger-text); }
+html.light .hover\:text-red-400:hover { color: var(--danger-text); }
+html.light .text-green-300 { color: var(--success-text); }
+html.light .text-green-400 { color: var(--success-text); }
+
+/* --- Pastel accents (chat icons, delta/disclaimer labels) ---
+   Ye -200/-300/-400 shades dark background ke liye bane the, off-white pe
+   wash out ho jaate hain — isliye light mode mein darker equivalents. --- */
+html.light .text-yellow-200,
+html.light .text-yellow-300,
+html.light .text-yellow-400 { color: #a16207; }
+html.light .text-yellow-500 { color: #854d0e; }
+html.light .text-amber-300,
+html.light .text-amber-400 { color: #b45309; }
+html.light .text-orange-300,
+html.light .text-orange-400 { color: #c2410c; }
+html.light .text-pink-300 { color: #be185d; }
+html.light .text-purple-300 { color: #7e22ce; }
+html.light .text-indigo-300 { color: #4338ca; }
+html.light .text-blue-300,
+html.light .text-blue-400 { color: #1d4ed8; }
+html.light .text-green-500 { color: #15803d; }
+
+/* Inhi ke opacity variants (Simulator/Dashboard ke delta + notes) */
+html.light .text-yellow-400\/70,
+html.light .text-yellow-400\/80 { color: rgba(161, 98, 7, 0.85); }
+html.light .text-red-400\/70,
+html.light .text-red-400\/80 { color: rgba(185, 28, 28, 0.85); }
+html.light .text-green-500\/80 { color: rgba(21, 128, 61, 0.85); }
+
+/* --- Logo gradient box (from-primary-500 → to-primary-300) ---
+   Uske andar ka FaHeart icon white rehna chahiye, warna dark icon green pe
+   ajeeb lagega. Parent selector ki specificity (0,3,x) wali hai, is liye
+   upar wale `html.light .text-white` ko beat kar deti hai. --- */
+html.light .from-primary-500 .text-white { color: #ffffff; }
+
+/* --- Backgrounds (white/5, white/10 = hover + surface) --- */
+html.light .bg-white\/5 { background-color: var(--hover-bg); }
+html.light .hover\:bg-white\/5:hover { background-color: var(--hover-bg); }
+html.light .bg-white\/10 { background-color: var(--surface-100); }
+html.light .hover\:bg-white\/10:hover { background-color: var(--surface-100); }
+
+html.light .bg-surface-50 { background-color: var(--surface-50); }
+html.light .bg-surface-50\/95 { background-color: var(--surface-solid); }
+html.light .bg-surface-100 { background-color: var(--surface-100); }
+html.light .bg-surface-200 { background-color: var(--surface-200); }
+
+/* --- Borders --- */
+html.light .border-white\/5 { border-color: var(--border-faint); }
+html.light .border-white\/10 { border-color: var(--border-subtle); }
+/* NOTE: border-white/30 aur border-white/40 sirf loading spinners ke liye hain
+   (green .btn-primary ke andar) — unhe white rehne dete hain, override nahi. */
+
+html.light .border-primary-500\/30 { border-color: var(--accent-border-soft); }
+html.light .border-primary-500\/40 { border-color: var(--accent-border); }
+html.light .hover\:border-primary-500\/30:hover { border-color: var(--accent-border-soft); }
+html.light .hover\:border-primary-500\/40:hover { border-color: var(--accent-border); }
+
+/* --- Active / selected states --- */
+html.light .bg-primary-500\/20 { background-color: var(--accent-tint); }
+html.light .bg-primary-500\/10 { background-color: var(--accent-tint-soft); }
+html.light .bg-gray-900\/60 { background-color: var(--surface-100); }
+
+/* NOTE: .input-field / .btn-secondary / select option ko override ki
+   zaroorat nahi — unke base rules ab seedha CSS vars use karte hain,
+   is liye wo khud-ba-khud theme ke saath badalte hain. */
+
+/* --- Shadow tokens used on cards in light mode --- */
+html.light .glass { box-shadow: 0 4px 24px rgba(17, 24, 39, 0.06); }
+
+/* ============================================================
+   ASSESSMENT CARDS (HealthForm)
+   Default: thora transparent + halka blur → peeche ka Three.js
+   background animation card ke aar-paar dikhta rehta hai.
+   Hover: wahi card thora BARA + outline DARK + blurred bg DARK tint
+   + zyada blur + gehri shadow; baqi cards thore CHOTE
+   (`:has()` — Chrome 105+/Safari 15.4+/Firefox 121+; support na ho to
+   sirf grow wala hissa chalta hai, baqi sab normal rehta hai).
+   ============================================================ */
+.assessment-card {
+  position: relative;
+  background-color: var(--assess-bg);
+  box-shadow: var(--assess-shadow);
+  backdrop-filter: blur(var(--assess-blur));
+  -webkit-backdrop-filter: blur(var(--assess-blur));
+  transition: transform 320ms cubic-bezier(0.22, 0.61, 0.36, 1),
+              background-color 320ms ease,
+              border-color 320ms ease,
+              box-shadow 320ms ease,
+              backdrop-filter 320ms ease,
+              -webkit-backdrop-filter 320ms ease;
+}
+
+/* Sirf un devices pe jinme asli hover hai (touch pe sticky-hover nahi). */
+@media (hover: hover) {
+  .assessment-card:hover {
+    z-index: 5;
+    transform: scale(1.03);
+    background-color: var(--assess-bg-hover);
+    border-color: var(--assess-border-hover);
+    box-shadow: var(--assess-shadow-hover), 0 0 0 1px var(--assess-border-glow), 0 0 18px -6px var(--assess-border-glow);
+    backdrop-filter: blur(var(--assess-blur-hover));
+    -webkit-backdrop-filter: blur(var(--assess-blur-hover));
+  }
+
+  .assessment-grid:has(.assessment-card:hover) .assessment-card:not(:hover) {
+    transform: scale(0.985);
+    filter: brightness(0.92) saturate(0.98) blur(0.5px);
+    transition: transform 220ms ease, filter 220ms ease;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .assessment-card { transition: none; }
+  .assessment-card:hover { transform: none; }
+  .assessment-grid:has(.assessment-card:hover) .assessment-card:not(:hover) { transform: none; }
+}
+
+/* --- Shadow (specificity fix) ---
+   `html.light .glass` ki specificity (0,2,1) hai, jo un-scoped
+   `.assessment-card:hover` (0,2,0) ko beat kar deti thi → light mode mein
+   hover shadow override ho kar GAYAB lagti thi. Is liye shadow ke liye
+   light-scoped rules (aur resting shadow bhi token se). */
+html.light .assessment-card { box-shadow: var(--assess-shadow); }
+html.light .assessment-card:hover { box-shadow: var(--assess-shadow-hover); }

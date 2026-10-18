@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import {
   FaRightFromBracket, FaHeart, FaHeartPulse, FaCommentDots, FaFileLines,
-  FaChartColumn, FaBars, FaXmark, FaShieldHalved,
+  FaChartColumn, FaBars, FaXmark, FaShieldHalved, FaSun, FaMoon,
 } from 'react-icons/fa6';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -68,6 +70,15 @@ export default function Navbar() {
           {/* User + Logout */}
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-400 hidden sm:block">{user.name}</span>
+            {/* Theme toggle (dark ⇄ light / off-white) */}
+            <button
+              onClick={toggleTheme}
+              aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              title={theme === 'dark' ? 'Light theme' : 'Dark theme'}
+              className="flex items-center gap-2 text-gray-400 hover:text-primary-300 transition-colors p-2 rounded-lg hover:bg-white/5"
+            >
+              {theme === 'dark' ? <FaSun size={18} /> : <FaMoon size={18} />}
+            </button>
             <button
               onClick={handleLogout}
               aria-label="Logout"
@@ -112,6 +123,13 @@ export default function Navbar() {
             className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-300 hover:text-red-400 hover:bg-white/5"
           >
             <FaRightFromBracket size={16} /> Logout
+          </button>
+          <button
+            onClick={toggleTheme}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-300 hover:text-primary-300 hover:bg-white/5"
+          >
+            {theme === 'dark' ? <FaSun size={16} /> : <FaMoon size={16} />}
+            {theme === 'dark' ? 'Light theme' : 'Dark theme'}
           </button>
         </div>
       )}

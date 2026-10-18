@@ -1,14 +1,28 @@
 {
   "disease_key": "pcos",
-  "trained_at": "2026-10-14T19:18:57.530929Z",
+  "trained_at": "2026-10-17T17:28:01.652603Z",
   "dataset": "Kaggle PCOS (541 rows) \u2014 Age/BMI/cycle/weight-gain/hair/acne.",
   "dataset_version": "v1",
   "n_samples": 541,
   "metrics": {
     "auc_roc": 0.8719558599695586,
+    "pr_auc": 0.8319566374139133,
     "macro_f1": 0.7522727272727273,
     "test_recall": 0.8611,
-    "brier_score": 0.1241
+    "test_precision": 0.5962,
+    "test_specificity": 0.7123,
+    "brier_score": 0.1241,
+    "brier_baseline": 0.2212,
+    "brier_skill_score": 0.4389,
+    "ece": 0.0926,
+    "auc_ci95": [
+      0.7826,
+      0.9378
+    ],
+    "macro_f1_ci95": [
+      0.664,
+      0.8279
+    ]
   },
   "features": [
     "age",
@@ -19,6 +33,7 @@
     "acne"
   ],
   "threshold": 0.2221,
+  "threshold_rule": "max_f2",
   "threshold_met": false,
   "flags": [],
   "known_limitations": [

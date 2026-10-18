@@ -1,8 +1,8 @@
 {
   "disease": "stroke",
-  "dataset": "Kaggle stroke prediction (5110 rows, fedesoriano) \u2014 age/gender/bmi/smoking plus hypertension/heart_disease history flags; TIA/speech symptoms NaN.",
-  "rows": 5110,
-  "positive_rate": 0.0487,
+  "dataset": "CDC BRFSS 2025 (356,158 US adults, 6,000-row seeded stratified cap) - label CVDSTRK3 = ever told stroke (4.6% of the source). 7 of the 16 app columns are real; family history, BP and the TIA/speech/palpitations symptoms are not surveyed (NaN) - deliberately: the previous Kaggle mapping stored the respondent's OWN hypertension/heart_disease in the family_* columns while the app asks the user for FAMILY history, so the model learned a personal-history effect and applied it to a family flag. Legacy fallback: Kaggle fedesoriano (5,110 rows).",
+  "rows": 6000,
+  "positive_rate": 0.046,
   "features": [
     "age",
     "gender",
@@ -21,14 +21,31 @@
     "speech_difficulty",
     "irregular_heartbeat"
   ],
-  "cv_auc_mean": 0.821,
-  "cv_auc_std": 0.0167,
-  "test_auc": 0.8142,
-  "test_recall": 0.82,
-  "test_precision": 0.1171,
-  "test_macro_f1": 0.5058,
-  "brier_score": 0.0433,
-  "threshold": 0.0439,
+  "cv_auc_mean": 0.7314,
+  "cv_auc_std": 0.026,
+  "test_auc": 0.7109,
+  "test_pr_auc": 0.1216,
+  "test_recall": 0.6727,
+  "test_precision": 0.086,
+  "test_specificity": 0.6568,
+  "test_npv": 0.9766,
+  "test_macro_f1": 0.469,
+  "test_positives": 55,
+  "test_negatives": 1145,
+  "brier_score": 0.0425,
+  "brier_baseline": 0.0437,
+  "brier_skill_score": 0.0279,
+  "ece": 0.0028,
+  "test_auc_ci95": [
+    0.6477,
+    0.7781
+  ],
+  "test_macro_f1_ci95": [
+    0.4454,
+    0.4974
+  ],
+  "threshold": 0.0529,
+  "threshold_rule": "max_youden_j&rate>=0.02(precision floor unreachable)",
   "targets": {
     "auc": 0.85,
     "macro_f1": 0.8
@@ -39,10 +56,9 @@
     "LOW_FEATURE_MODEL"
   ],
   "missing_features": [
-    "sleep_hours",
-    "exercise_level",
-    "alcohol",
     "family_diabetes",
+    "family_heart",
+    "family_hypertension",
     "family_cancer",
     "bp_systolic",
     "bp_diastolic",
@@ -51,12 +67,13 @@
     "irregular_heartbeat"
   ],
   "top_features_shap": {
-    "age": 2.0011,
-    "bmi": 0.3019,
-    "family_hypertension": 0.0933,
-    "smoking": 0.064,
-    "gender": 0.0481,
-    "family_heart": 0.0268
+    "age": 0.9324,
+    "exercise_level": 0.2174,
+    "bmi": 0.1911,
+    "alcohol": 0.1765,
+    "sleep_hours": 0.1251,
+    "gender": 0.0739,
+    "smoking": 0.0593
   },
-  "trained_at": "2026-10-14T19:10:32.816853+00:00"
+  "trained_at": "2026-10-18T15:51:04.299221+00:00"
 }

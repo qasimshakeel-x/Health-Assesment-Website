@@ -1,14 +1,28 @@
 {
   "disease_key": "lung_cancer",
-  "trained_at": "2026-10-14T19:14:23.964775Z",
+  "trained_at": "2026-10-18T15:17:00.782356Z",
   "dataset": "Kaggle lung-cancer survey (309 rows) \u2014 SMALL_DATASET; passive-smoke/blood symptoms not surveyed (NaN).",
   "dataset_version": "v1",
   "n_samples": 309,
   "metrics": {
-    "auc_roc": 0.7199074074074074,
+    "auc_roc": 0.7291666666666666,
+    "pr_auc": 0.9499831659533771,
     "macro_f1": 0.46551724137931033,
     "test_recall": 1.0,
-    "brier_score": 0.1066
+    "test_precision": 0.871,
+    "test_specificity": 0.0,
+    "brier_score": 0.1053,
+    "brier_baseline": 0.1124,
+    "brier_skill_score": 0.0626,
+    "ece": 0.0502,
+    "auc_ci95": [
+      0.525,
+      0.909
+    ],
+    "macro_f1_ci95": [
+      0.4414,
+      0.4876
+    ]
   },
   "features": [
     "smoking",
@@ -19,7 +33,8 @@
     "coughing_blood",
     "breath_shortness"
   ],
-  "threshold": 0.5289,
+  "threshold": 0.5487,
+  "threshold_rule": "max_f2",
   "threshold_met": false,
   "flags": [
     "SMALL_DATASET",

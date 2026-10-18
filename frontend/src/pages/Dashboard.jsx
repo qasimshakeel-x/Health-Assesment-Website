@@ -32,7 +32,7 @@ function RiskGauge({ label, value, note }) {
       <p className="text-sm text-gray-400 mb-2">{label}</p>
       <div className="relative w-28 h-28 mx-auto mb-3">
         <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-          <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" />
+          <circle cx="50" cy="50" r="42" fill="none" className="gauge-track" strokeWidth="8" />
           <circle
             cx="50" cy="50" r="42" fill="none"
             stroke={riskColor}
@@ -142,7 +142,7 @@ function LongevityScore({ score }) {
       <h3 className="text-sm text-gray-400 mb-4">Longevity Score</h3>
       <div className="relative w-32 h-32 mx-auto mb-3">
         <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-          <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="6" />
+          <circle cx="50" cy="50" r="45" fill="none" className="gauge-track" strokeWidth="6" />
           <circle
             cx="50" cy="50" r="45" fill="none"
             stroke={catColor}

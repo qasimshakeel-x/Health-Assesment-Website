@@ -12,14 +12,31 @@
     "coughing_blood",
     "breath_shortness"
   ],
-  "cv_auc_mean": 0.6135,
-  "cv_auc_std": 0.1123,
-  "test_auc": 0.7199,
+  "cv_auc_mean": 0.6236,
+  "cv_auc_std": 0.0884,
+  "test_auc": 0.7292,
+  "test_pr_auc": 0.95,
   "test_recall": 1.0,
   "test_precision": 0.871,
+  "test_specificity": 0.0,
+  "test_npv": 0.0,
   "test_macro_f1": 0.4655,
-  "brier_score": 0.1066,
-  "threshold": 0.5289,
+  "test_positives": 54,
+  "test_negatives": 8,
+  "brier_score": 0.1053,
+  "brier_baseline": 0.1124,
+  "brier_skill_score": 0.0626,
+  "ece": 0.0502,
+  "test_auc_ci95": [
+    0.525,
+    0.909
+  ],
+  "test_macro_f1_ci95": [
+    0.4414,
+    0.4876
+  ],
+  "threshold": 0.5487,
+  "threshold_rule": "max_f2",
   "targets": {
     "auc": 0.85,
     "macro_f1": 0.8
@@ -40,5 +57,5 @@
     "smoking": 0.3624,
     "breath_shortness": 0.1789
   },
-  "trained_at": "2026-10-14T19:14:23.964775+00:00"
+  "trained_at": "2026-10-18T15:17:00.782356+00:00"
 }

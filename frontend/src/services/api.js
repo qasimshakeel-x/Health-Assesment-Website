@@ -77,6 +77,11 @@ export const simulateFuture = (data) => api.post('/simulate', data);
 export const sendChatMessage = (userId, message, sessionId) =>
   api.post(`/chat/${userId}/message`, { message, session_id: sessionId });
 
+// ─── Assessment Form Helper (intake chat) ───
+// LLM proxy: key sirf backend .env mein, browser ko sirf {reply, form_updates}
+export const sendIntakeMessage = (messages, context) =>
+  api.post('/intake/chat', { messages, context });
+
 // ─── Admin ───
 export const adminListUsers = () => api.get('/admin/users');
 export const adminGetUser = (userId) => api.get(`/admin/users/${userId}`);

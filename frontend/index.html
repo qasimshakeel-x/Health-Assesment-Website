@@ -6,6 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>VitaLens — AI Health Intelligence Platform</title>
     <meta name="description" content="AI-powered health intelligence platform with disease risk prediction, biological age estimation, and personalized diet guidance." />
+    <!-- Flash of wrong theme avoid karo: saved theme pehle hi html pe apply ho jaye -->
+    <script>
+      try {
+        if (localStorage.getItem('vitalens_theme') === 'light') {
+          document.documentElement.classList.add('light');
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

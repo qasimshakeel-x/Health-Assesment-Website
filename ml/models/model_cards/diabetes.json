@@ -1,14 +1,28 @@
 {
   "disease_key": "diabetes",
-  "trained_at": "2026-10-15T13:26:26.733165Z",
+  "trained_at": "2026-10-17T17:26:53.350542Z",
   "dataset": "NHANES 2017-2018 (J) \u2014 label DIQ010 doctor-diagnosed diabetes; family history DIQ170. Symptoms not collected in NHANES (NaN).",
   "dataset_version": "v1",
   "n_samples": 3000,
   "metrics": {
     "auc_roc": 0.8754047247871447,
+    "pr_auc": 0.3579485213746654,
     "macro_f1": 0.6540820070231835,
     "test_recall": 0.8548,
-    "brier_score": 0.0772
+    "test_precision": 0.3011,
+    "test_specificity": 0.7714,
+    "brier_score": 0.0772,
+    "brier_baseline": 0.0927,
+    "brier_skill_score": 0.1673,
+    "ece": 0.0278,
+    "auc_ci95": [
+      0.8451,
+      0.9053
+    ],
+    "macro_f1_ci95": [
+      0.602,
+      0.6981
+    ]
   },
   "features": [
     "age",
@@ -27,6 +41,7 @@
     "weight_loss"
   ],
   "threshold": 0.0761,
+  "threshold_rule": "max_f2",
   "threshold_met": false,
   "flags": [
     "LOW_FEATURE_MODEL"

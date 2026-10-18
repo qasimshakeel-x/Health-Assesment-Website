@@ -19,7 +19,18 @@ NHANES/Kaggle values already use NaN for "not measured", so it stays empty.
 
 Ground Rule 1: no model is trained on synthetic data — every entry here reads a real dataset.
 
-`colorectal` is trained on the real NHANES 2017-2018 sample. `burnout` has no real, app-aligned
+Decision threshold (§7 step 5, 2026-10): common diseases use the out-of-fold argmax-F2 cut-off.
+Rare diseases (positive rate < 10%) maximise F2 **subject to a 0.30 precision floor** — the plain
+F2 optimum degenerated on rare outcomes (thyroid: cut-off 0.042, precision 0.046, i.e. almost
+everyone flagged). The applied rule is stored per disease in `ml/reports/<disease>_metrics.json`
+(`threshold_rule`).
+
+`label_from_features: True` (gad7/depression) means the label is the sum of these very columns, so
+the "model" is mathematically the clinical rule. Those entries are trained for back-compatibility
+but reported as `RULE_SERVED`, **not** as an accuracy result — the app serves the rule directly.
+Remaining dataset upgrades (stronger app-aligned sources) are tracked in `TODO.md` / `opencode.md`.
+
+`colorectal` is trained on the real NHANES sample. `burnout` has no real, app-aligned
 questionnaire (the Mendeley dataset's columns are nominal questionnaire codes, not the app's
 work_hours / job_satisfaction / exhaustion items), so it is served by the clinically-validated
 rule `ScreeningClassifier.score_burnout()` and deliberately has NO ML artifact.
@@ -53,8 +64,14 @@ DISEASES = {
                     "family_cancer", "chest_pain", "short_breath", "palpitations"],
         "categorical": [],
         "zero_is_missing": [],
-        "source_note": "UCI Cleveland heart disease (303 rows) — age/gender/chest-pain only; "
-                       "Cleveland has no smoking/BMI/sleep/exercise columns (NaN). LOW_FEATURE_MODEL.",
+        "source_note": "CDC BRFSS 2025 (356,158 US adults, 6,000-row seeded stratified cap) - "
+                       "label _MICHD = ever told coronary heart disease or heart attack (8.9% of "
+                       "the source). 7 of the 14 app columns are real (age, gender, BMI, sleep, "
+                       "physical activity, smoking, alcohol); family history and the "
+                       "chest-pain/shortness-of-breath/palpitations are not surveyed in BRFSS "
+                       "(NaN) -> still LOW_FEATURE_MODEL, but 3 predictors -> 7. "
+                       "Legacy fallback when the BRFSS download is missing: UCI Cleveland "
+                       "(303 rows, age/gender/chest-pain only).",
     },
     "hypertension": {
         "data": "ml/data/real/hypertension.csv",
@@ -79,6 +96,12 @@ DISEASES = {
         "zero_is_missing": [],
         "source_note": "NHANES 2017-2018 (J) — label = measured BMI>=30; BMI deliberately excluded "
                        "from features (ML_TRAINING §5). LOW_FEATURE_MODEL.",
+        # TODO(S18 audit): the label IS BMI>=30, so the ML model can only guess obesity from
+        # lifestyle with BMI withheld (test AUC ~0.72, barely above chance for a clinical cut-off).
+        # Correct fix = serve the clinical BMI rule instead of the ML artifact (burnout pattern:
+        # `ScreeningClassifier.score_obesity()` + registry `engine="screening"`), or swap in a
+        # dataset with richer predictors (BRFSS). NOT done now: it introduces a new pattern
+        # (rule-served Phase-1 disease) → Golden Rule 2 = comment first, don't restructure.
     },
 
     # ── Phase 2/3/4/5: Phase2RiskEngine (ml/models/phase2_risk.py) ─────────────────────────
@@ -92,8 +115,14 @@ DISEASES = {
                     "speech_difficulty", "irregular_heartbeat"],
         "categorical": [],
         "zero_is_missing": [],
-        "source_note": "Kaggle stroke prediction (5110 rows, fedesoriano) — age/gender/bmi/smoking "
-                       "plus hypertension/heart_disease history flags; TIA/speech symptoms NaN.",
+        "source_note": "CDC BRFSS 2025 (356,158 US adults, 6,000-row seeded stratified cap) - "
+                       "label CVDSTRK3 = ever told stroke (4.6% of the source). 7 of the 16 app "
+                       "columns are real; family history, BP and the TIA/speech/palpitations "
+                       "symptoms are not surveyed (NaN) - deliberately: the previous Kaggle "
+                       "mapping stored the respondent's OWN hypertension/heart_disease in the "
+                       "family_* columns while the app asks the user for FAMILY history, so the "
+                       "model learned a personal-history effect and applied it to a family flag. "
+                       "Legacy fallback: Kaggle fedesoriano (5,110 rows).",
     },
     "ckd": {
         "data": "ml/data/real/ckd.csv",
@@ -103,8 +132,11 @@ DISEASES = {
                     "urination_changes", "ckd_fatigue"],
         "categorical": [],
         "zero_is_missing": [],
-        "source_note": "UCI Chronic Kidney Disease (400 rows) — age/bp/dm/htn mapped to app vector; "
-                       "swelling/urination/fatigue symptoms not in UCI (NaN).",
+        "source_note": "NHANES 2013-2018 (H+I+J, 17,032 rows, 3.8% positive) - label KIQ022 = "
+                       "ever told weak/failing kidneys; age / measured BP (BPX) / diabetes (DIQ010) "
+                       "/ high-BP history (BPQ020) / nocturia>=2 (KIQ480) are real app columns; "
+                       "ankle-swelling & fatigue are not collected in NHANES (NaN). Replaces the "
+                       "400-row UCI CKD set whose AUC 0.955 was inflated.",
     },
     "liver": {
         "data": "ml/data/real/liver.csv",
@@ -114,8 +146,11 @@ DISEASES = {
                     "liver_fatigue"],
         "categorical": [],
         "zero_is_missing": [],
-        "source_note": "UCI ILPD liver patients (583 rows) — only age/gender app-available; "
-                       "ILPD has no alcohol/symptom columns. LOW_FEATURE_MODEL.",
+        "source_note": "NHANES 2013-2018 (H+I+J, 17,020 rows, 4.6% positive) - label MCQ160L = "
+                       "ever told any liver condition; age / gender / BMI / alcohol (ALQ "
+                       "ever-drink) / jaundice (MCQ203) are real app columns; abdominal-pain & "
+                       "fatigue are not collected in NHANES (NaN). Replaces the 583-row UCI ILPD "
+                       "set (age/gender only). LOW_FEATURE_MODEL.",
     },
     "thyroid": {
         "data": "ml/data/real/thyroid.csv",
@@ -145,8 +180,9 @@ DISEASES = {
                     "lightheadedness", "brittle_nails"],
         "categorical": [],
         "zero_is_missing": [],
-        "source_note": "NHANES 2017-2018 (J) — label = haemoglobin < WHO cut-off (13.0 M / 12.0 F); "
-                       "no lab features used (app-aligned). LOW_FEATURE_MODEL.",
+        "source_note": "NHANES 2013-2018 (H+I+J pooled, 3,000-row seeded cap) - label = "
+                       "haemoglobin < WHO cut-off (13.0 M / 12.0 F); multi-cycle pool (was "
+                       "2017-18 only); no lab features used (app-aligned). LOW_FEATURE_MODEL.",
     },
     "lung_cancer": {
         "data": "ml/data/real/lung_cancer.csv",
@@ -221,10 +257,12 @@ DISEASES = {
                     "blood_in_stool", "bowel_change", "colorectal_weight_loss"],
         "categorical": [],
         "zero_is_missing": [],
-        "source_note": "NHANES 2017-2018 (J) MCQ_J MCQ230A-D, code 16 (colon) / 31 (rectum), "
-                       "age>=40 (app gate). Only 4 of the 9 app features exist in NHANES and there "
-                       "are just 55 cases (1.4%) -> LOW_FEATURE_MODEL + HEAVY_IMBALANCE and a weak "
-                       "AUC, exactly as ML_TRAINING §6 predicts for a dataset this small.",
+        "source_note": "NHANES 2009-2018 pooled (F+G+H+I+J) - MCQ230A-D, code 16 (colon) / 31 "
+                       "(rectum), age>=40 (app gate). Only 4 of the 9 app features exist in "
+                       "NHANES; 19,201 rows / 215 cases (1.1%) -> LOW_FEATURE_MODEL + "
+                       "HEAVY_IMBALANCE. S18 pooled H+I+J (11,463 rows / 120 cases); this pass "
+                       "added the 2009-2012 cycles F/G. The earlier single-cycle test AUC 0.694 "
+                       "was small-sample luck; judge the pooled score as the honest estimate.",
     },
 
     # NOTE: `burnout` is intentionally absent here — there is no real, app-aligned

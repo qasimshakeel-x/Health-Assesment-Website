@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { ThemeProvider } from './context/ThemeContext'
 import Navbar from './components/Navbar'
 import ScrollBackground from './components/ScrollBackground'
 import Login from './pages/Login'
@@ -78,10 +79,12 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <div className="min-h-screen">
-        <AppRoutes />
-      </div>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <div className="min-h-screen">
+          <AppRoutes />
+        </div>
+      </AuthProvider>
+    </ThemeProvider>
   )
 }

@@ -1,14 +1,28 @@
 {
   "disease_key": "ckd",
-  "trained_at": "2026-10-14T19:15:55.337999Z",
-  "dataset": "UCI Chronic Kidney Disease (400 rows) \u2014 age/bp/dm/htn mapped to app vector; swelling/urination/fatigue symptoms not in UCI (NaN).",
+  "trained_at": "2026-10-18T13:53:38.389739Z",
+  "dataset": "NHANES 2013-2018 (H+I+J, 17,032 rows, 3.8% positive) - label KIQ022 = ever told weak/failing kidneys; age / measured BP (BPX) / diabetes (DIQ010) / high-BP history (BPQ020) / nocturia>=2 (KIQ480) are real app columns; ankle-swelling & fatigue are not collected in NHANES (NaN). Replaces the 400-row UCI CKD set whose AUC 0.955 was inflated.",
   "dataset_version": "v1",
-  "n_samples": 400,
+  "n_samples": 17032,
   "metrics": {
-    "auc_roc": 0.9546666666666667,
-    "macro_f1": 0.6771589991928975,
-    "test_recall": 0.98,
-    "brier_score": 0.0699
+    "auc_roc": 0.74993075279923,
+    "pr_auc": 0.12089550857177236,
+    "macro_f1": 0.4747023161625292,
+    "test_recall": 0.6846,
+    "test_precision": 0.0794,
+    "test_specificity": 0.6851,
+    "brier_score": 0.0351,
+    "brier_baseline": 0.0367,
+    "brier_skill_score": 0.0425,
+    "ece": 0.0031,
+    "auc_ci95": [
+      0.7053,
+      0.7918
+    ],
+    "macro_f1_ci95": [
+      0.4592,
+      0.489
+    ]
   },
   "features": [
     "age",
@@ -19,15 +33,16 @@
     "urination_changes",
     "ckd_fatigue"
   ],
-  "threshold": 0.1556,
+  "threshold": 0.0391,
+  "threshold_rule": "max_youden_j&rate>=0.02(precision floor unreachable)",
   "threshold_met": false,
   "flags": [
-    "SMALL_DATASET",
+    "HEAVY_IMBALANCE",
     "LOW_FEATURE_MODEL"
   ],
   "known_limitations": [
     "App-aligned projection of a real public dataset (ml/data/README.md) \u2014 not a local clinical sample; revalidate on local data before clinical use",
-    "Columns the source dataset never collected: ankle_swelling, urination_changes, ckd_fatigue \u2014 the app still asks these but the model cannot use them (LOW_FEATURE_MODEL)",
+    "Columns the source dataset never collected: ankle_swelling, ckd_fatigue \u2014 the app still asks these but the model cannot use them (LOW_FEATURE_MODEL)",
     "Screening and awareness tool only, not a diagnostic device"
   ]
 }

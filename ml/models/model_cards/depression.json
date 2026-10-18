@@ -1,14 +1,28 @@
 {
   "disease_key": "depression",
-  "trained_at": "2026-10-14T19:14:15.996046Z",
+  "trained_at": "2026-10-17T17:29:46.749255Z",
   "dataset": "Real PHQ-9 questionnaire (776 rows, Figshare CC BY) \u2014 label = PHQ-9 total >=10 (moderate+). Label derived from the items BY DESIGN (mirrors the app's PHQ-9 severity rule); an EXPECTED_LEAKAGE_LABEL_FROM_FEATURES flag is expected.",
   "dataset_version": "v1",
   "n_samples": 776,
   "metrics": {
     "auc_roc": 0.9978084593469209,
+    "pr_auc": 0.9933196831029649,
     "macro_f1": 0.9357892570487754,
     "test_recall": 1.0,
-    "brier_score": 0.0181
+    "test_precision": 0.8298,
+    "test_specificity": 0.9316,
+    "brier_score": 0.0181,
+    "brier_baseline": 0.1875,
+    "brier_skill_score": 0.9033,
+    "ece": 0.0312,
+    "auc_ci95": [
+      0.9927,
+      1.0
+    ],
+    "macro_f1_ci95": [
+      0.885,
+      0.9757
+    ]
   },
   "features": [
     "phq1",
@@ -22,14 +36,16 @@
     "phq9"
   ],
   "threshold": 0.1802,
-  "threshold_met": true,
+  "threshold_rule": "max_f2",
+  "threshold_met": false,
   "flags": [
-    "EXPECTED_LEAKAGE_LABEL_FROM_FEATURES"
+    "EXPECTED_LEAKAGE_LABEL_FROM_FEATURES",
+    "RULE_EQUIVALENT_MODEL"
   ],
   "known_limitations": [
     "App-aligned projection of a real public dataset (ml/data/README.md) \u2014 not a local clinical sample; revalidate on local data before clinical use",
     "All app features are present in the source dataset",
     "Screening and awareness tool only, not a diagnostic device",
-    "EXPECTED_LEAKAGE_LABEL_FROM_FEATURES: the label is derived from these very features by design (it mirrors the app's clinical scoring rule), so the high AUC is expected and the model is mathematically equivalent to the rule \u2014 it adds no new signal"
+    "RULE_EQUIVALENT_MODEL: the label is derived from these very features by design (PHQ-9/GAD-7 item sum >= 10), so the 'model' is mathematically the clinical rule. It is trained for back-compatibility but is NOT an accuracy claim \u2014 the app serves the rule directly (status RULE_SERVED)."
   ]
 }

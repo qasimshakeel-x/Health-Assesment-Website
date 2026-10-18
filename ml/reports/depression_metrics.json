@@ -17,18 +17,36 @@
   "cv_auc_mean": 0.9959,
   "cv_auc_std": 0.0024,
   "test_auc": 0.9978,
+  "test_pr_auc": 0.9933,
   "test_recall": 1.0,
   "test_precision": 0.8298,
+  "test_specificity": 0.9316,
+  "test_npv": 1.0,
   "test_macro_f1": 0.9358,
+  "test_positives": 39,
+  "test_negatives": 117,
   "brier_score": 0.0181,
+  "brier_baseline": 0.1875,
+  "brier_skill_score": 0.9033,
+  "ece": 0.0312,
+  "test_auc_ci95": [
+    0.9927,
+    1.0
+  ],
+  "test_macro_f1_ci95": [
+    0.885,
+    0.9757
+  ],
   "threshold": 0.1802,
+  "threshold_rule": "max_f2",
   "targets": {
     "auc": 0.85,
     "macro_f1": 0.8
   },
-  "status": "PASS",
+  "status": "RULE_SERVED",
   "flags": [
-    "EXPECTED_LEAKAGE_LABEL_FROM_FEATURES"
+    "EXPECTED_LEAKAGE_LABEL_FROM_FEATURES",
+    "RULE_EQUIVALENT_MODEL"
   ],
   "missing_features": [],
   "top_features_shap": {
@@ -42,5 +60,5 @@
     "phq1": 0.3358,
     "phq9": 0.195
   },
-  "trained_at": "2026-10-14T19:14:15.996046+00:00"
+  "trained_at": "2026-10-17T17:29:46.749255+00:00"
 }

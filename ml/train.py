@@ -32,8 +32,9 @@ from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (brier_score_loss, f1_score, precision_recall_curve,
-                             precision_score, recall_score, roc_auc_score)
+from sklearn.metrics import (average_precision_score, brier_score_loss, f1_score,
+                             precision_recall_curve, precision_score, recall_score,
+                             roc_auc_score, roc_curve)
 from sklearn.model_selection import (StratifiedKFold, cross_val_predict,
                                      cross_val_score, train_test_split)
 from sklearn.pipeline import Pipeline as SkPipeline
@@ -61,6 +62,91 @@ CARD_DIR = MODELS_DIR / "model_cards"
 DATA_DIR = _HERE / "data"
 for _d in (MODELS_DIR, REPORTS_DIR, CARD_DIR):
     _d.mkdir(parents=True, exist_ok=True)
+
+# ---------- decision-threshold policy (ML_TRAINING.md §7 step 5) ----------
+# F2 (β=2) favours recall — correct for a screening tool — but on a RARE positive class it
+# degenerates: at 4.8% prevalence (thyroid) the F2-optimal cut-off landed at 0.042, which flags
+# almost everybody (precision 0.046). So for rare diseases the threshold maximises F2 *subject to*
+# a precision floor; if no cut-off can reach the floor we fall back to the highest-precision
+# operating point instead of silently flagging the whole population. Common diseases keep the
+# plain argmax-F2 rule.
+PRECISION_FLOOR = 0.30
+RARE_PREVALENCE = 0.10
+# A rare-disease model is well-calibrated around its prevalence, so its probabilities are
+# compressed near 0 (stroke: median 0.011, max 0.273). The precision floor then only holds in the
+# extreme tail: the first S18 run picked stroke 0.2485 / colorectal 0.0299, which sit *above* every
+# test probability → the model flagged nobody (recall 0). Restricting rare-disease operating points
+# to those that flag at least MIN_FLAG_RATE of the population is the standard screening guard: it
+# guarantees the tool actually alerts someone instead of silently returning "all low".
+MIN_FLAG_RATE = 0.02
+
+
+def choose_threshold(y_true, proba):
+    """Return `(threshold, rule_name)` — see the policy note above.
+
+    Fallback order for rare diseases: max F2 subject to (precision >= floor AND flag-rate >= 2 %);
+    if the floor is unreachable, Youden's J (max sensitivity + specificity − 1) within the same
+    flag-rate guard. Common diseases keep plain argmax-F2 (spec §7).
+    """
+    y_true = np.asarray(y_true)
+    proba = np.asarray(proba)
+    prec, rec, thr = precision_recall_curve(y_true, proba)
+    if len(thr) == 0:                        # degenerate (constant probabilities)
+        return 0.5, "default_0.5"
+    f2 = (5 * prec * rec) / (4 * prec + rec + 1e-9)
+    prevalence = float(np.mean(y_true))
+    if prevalence < RARE_PREVALENCE:
+        # flag_rate per candidate threshold = share of training rows at/above it
+        ordered = np.sort(proba)
+        n = len(proba)
+        rate = lambda t: (n - np.searchsorted(ordered, t, side="left")) / n
+        reaches = np.where((prec[:-1] >= PRECISION_FLOOR) & (rate(thr) >= MIN_FLAG_RATE))[0]
+        if len(reaches):
+            idx = int(reaches[np.argmax(f2[reaches])])
+            return float(thr[idx]), f"max_f2_s.t._precision>={PRECISION_FLOOR}&rate>={MIN_FLAG_RATE}"
+        fpr, tpr, rthr = roc_curve(y_true, proba)     # Youden's J fallback
+        j = tpr - fpr
+        cand = np.where(np.isfinite(rthr) & (rate(rthr) >= MIN_FLAG_RATE))[0]
+        if len(cand):
+            idx = int(cand[np.argmax(j[cand])])
+            return float(rthr[idx]), f"max_youden_j&rate>={MIN_FLAG_RATE}(precision floor unreachable)"
+        return 0.5, "default_0.5"
+    return float(thr[int(np.argmax(f2[:-1]))]), "max_f2"
+
+
+def expected_calibration_error(y_true, proba, bins=10):
+    """|confidence − accuracy| averaged over equal-width probability bins (10 bins)."""
+    y_true = np.asarray(y_true, dtype=float)
+    proba = np.asarray(proba, dtype=float)
+    edges = np.linspace(0.0, 1.0, bins + 1)
+    ece = 0.0
+    for lo, hi in zip(edges[:-1], edges[1:]):
+        m = (proba > lo) & (proba <= hi) if lo > 0 else (proba >= lo) & (proba <= hi)
+        if not np.any(m):
+            continue
+        ece += (m.sum() / len(proba)) * abs(y_true[m].mean() - proba[m].mean())
+    return float(ece)
+
+
+def bootstrap_ci(y_true, proba, threshold, n_boot=500):
+    """Percentile 95% CI for test AUC + macro F1 — small test sets make a single point estimate
+    look far more certain than it is (e.g. rare cancers with a few dozen test cases)."""
+    rng = np.random.default_rng(SEED)
+    y_true = np.asarray(y_true)
+    proba = np.asarray(proba)
+    aucs, f1s = [], []
+    n = len(y_true)
+    for _ in range(n_boot):
+        idx = rng.integers(0, n, n)
+        yt, p = y_true[idx], proba[idx]
+        if len(np.unique(yt)) < 2:
+            continue
+        aucs.append(roc_auc_score(yt, p))
+        f1s.append(f1_score(yt, (p >= threshold).astype(int), average="macro"))
+    ci = lambda v: ([round(float(np.percentile(v, 2.5)), 4),
+                     round(float(np.percentile(v, 97.5)), 4)] if v else None)
+    return {"test_auc_ci95": ci(aucs), "test_macro_f1_ci95": ci(f1s),
+            "n_bootstrap": len(aucs)}
 
 
 # ---------- data ----------
@@ -227,12 +313,10 @@ def train(name, trials=0, shap=True):
     model = CalibratedClassifierCV(build_model(cfg, params, n_min),
                                    method="sigmoid", cv=cal_cv)
 
-    # 5) threshold from out-of-fold F2 (recall-oriented)
+    # 5) threshold from out-of-fold probabilities (rare-disease-aware, see `choose_threshold`)
     oof = cross_val_predict(model, X_tr, y_tr, cv=cal_cv, method="predict_proba",
                             n_jobs=1)[:, 1]
-    prec, rec, thr = precision_recall_curve(y_tr, oof)
-    f2 = (5 * prec * rec) / (4 * prec + rec + 1e-9)
-    threshold = float(thr[int(np.argmax(f2[:-1]))]) if len(thr) > 1 else 0.5
+    threshold, threshold_rule = choose_threshold(y_tr, oof)
 
     # 6) fit on all training data, evaluate ONCE on the untouched test set
     model.fit(X_tr, y_tr)
@@ -247,7 +331,30 @@ def train(name, trials=0, shap=True):
         # flagged distinctly from a genuine leak and reported as an expected property.
         flags.append("EXPECTED_LEAKAGE_LABEL_FROM_FEATURES" if cfg.get("label_from_features")
                      else "SUSPICIOUS_POSSIBLE_LEAKAGE")
-    status = "PASS" if (test_auc >= TARGET_AUC and macro_f1 >= TARGET_MACRO_F1) else "BELOW_TARGET"
+    if cfg.get("label_from_features"):
+        # The "model" is mathematically the rule (sum of the item scores), so it must not be
+        # reported as a PASS/accuracy claim — the app serves the clinical rule directly and the
+        # ML artifact adds no new signal. Kept trained so existing artifacts/DB rows stay valid.
+        flags.append("RULE_EQUIVALENT_MODEL")
+
+    # 7) honest test-set evaluation extras: imbalance-aware ranking (PR-AUC), probability quality
+    #    against the trivial baseline (Brier skill), ECE, and percentile CIs from a bootstrap.
+    n_pos = int(y_te.sum())
+    n_neg = int(len(y_te) - n_pos)
+    pr_auc = float(average_precision_score(y_te, proba))
+    brier = float(brier_score_loss(y_te, proba))
+    test_prevalence = float(np.mean(y_te))
+    brier_baseline = float(brier_score_loss(y_te, np.full_like(proba, test_prevalence)))
+    brier_skill = 1.0 - (brier / brier_baseline) if brier_baseline > 0 else 0.0
+    tn = int(((pred == 0) & (y_te == 0)).sum())
+    specificity = float(tn / n_neg) if n_neg else 0.0
+    npv = float(tn / (tn + int(((pred == 0) & (y_te == 1)).sum()))) if (tn + int(((pred == 0) & (y_te == 1)).sum())) else 0.0
+    ci = bootstrap_ci(y_te, proba, threshold)
+
+    if cfg.get("label_from_features"):
+        status = "RULE_SERVED"          # not an accuracy claim — see the flag above
+    else:
+        status = "PASS" if (test_auc >= TARGET_AUC and macro_f1 >= TARGET_MACRO_F1) else "BELOW_TARGET"
 
     metrics = {
         "disease": name,
@@ -258,11 +365,22 @@ def train(name, trials=0, shap=True):
         "cv_auc_mean": round(float(cv_scores.mean()), 4),
         "cv_auc_std": round(float(cv_scores.std()), 4),
         "test_auc": round(test_auc, 4),
+        "test_pr_auc": round(pr_auc, 4),
         "test_recall": round(float(recall_score(y_te, pred, zero_division=0)), 4),
         "test_precision": round(float(precision_score(y_te, pred, zero_division=0)), 4),
+        "test_specificity": round(specificity, 4),
+        "test_npv": round(npv, 4),
         "test_macro_f1": round(macro_f1, 4),
-        "brier_score": round(float(brier_score_loss(y_te, proba)), 4),
+        "test_positives": n_pos,
+        "test_negatives": n_neg,
+        "brier_score": round(brier, 4),
+        "brier_baseline": round(brier_baseline, 4),
+        "brier_skill_score": round(brier_skill, 4),
+        "ece": round(expected_calibration_error(y_te, proba), 4),
+        "test_auc_ci95": ci["test_auc_ci95"],
+        "test_macro_f1_ci95": ci["test_macro_f1_ci95"],
         "threshold": round(threshold, 4),
+        "threshold_rule": threshold_rule,
         "targets": {"auc": TARGET_AUC, "macro_f1": TARGET_MACRO_F1},
         "status": status,
         "flags": flags,
@@ -285,11 +403,19 @@ def train(name, trials=0, shap=True):
         "dataset": metrics["dataset"],
         "dataset_version": "v1",
         "n_samples": metrics["rows"],
-        "metrics": {"auc_roc": test_auc, "macro_f1": macro_f1,
+        "metrics": {"auc_roc": test_auc, "pr_auc": pr_auc, "macro_f1": macro_f1,
                     "test_recall": metrics["test_recall"],
-                    "brier_score": metrics["brier_score"]},
+                    "test_precision": metrics["test_precision"],
+                    "test_specificity": metrics["test_specificity"],
+                    "brier_score": metrics["brier_score"],
+                    "brier_baseline": metrics["brier_baseline"],
+                    "brier_skill_score": metrics["brier_skill_score"],
+                    "ece": metrics["ece"],
+                    "auc_ci95": metrics["test_auc_ci95"],
+                    "macro_f1_ci95": metrics["test_macro_f1_ci95"]},
         "features": metrics["features"],
         "threshold": metrics["threshold"],
+        "threshold_rule": metrics["threshold_rule"],
         "threshold_met": status == "PASS",
         "flags": flags,
         "known_limitations": [
@@ -300,41 +426,61 @@ def train(name, trials=0, shap=True):
              "cannot use them (LOW_FEATURE_MODEL)") if missing_features else
             "All app features are present in the source dataset",
             "Screening and awareness tool only, not a diagnostic device",
-        ] + (["EXPECTED_LEAKAGE_LABEL_FROM_FEATURES: the label is derived from these very features "
-              "by design (it mirrors the app's clinical scoring rule), so the high AUC is expected "
-              "and the model is mathematically equivalent to the rule — it adds no new signal"]
-             if "EXPECTED_LEAKAGE_LABEL_FROM_FEATURES" in flags else [])
+        ] + (["RULE_EQUIVALENT_MODEL: the label is derived from these very features by design "
+              "(PHQ-9/GAD-7 item sum >= 10), so the 'model' is mathematically the clinical rule. "
+              "It is trained for back-compatibility but is NOT an accuracy claim — the app serves "
+              "the rule directly (status RULE_SERVED)."] if "RULE_EQUIVALENT_MODEL" in flags else [])
           + (["SUSPICIOUS_POSSIBLE_LEAKAGE: test AUC > 0.97 — investigate before trusting"]
              if "SUSPICIOUS_POSSIBLE_LEAKAGE" in flags else []),
     }
     (CARD_DIR / f"{name}.json").write_text(json.dumps(card, indent=2), encoding="utf-8")
 
-    print(f"[{name}] AUC={test_auc:.3f} recall={metrics['test_recall']:.3f} "
-          f"F1={macro_f1:.3f} -> {status} {flags}")
+    print(f"[{name}] AUC={test_auc:.3f} PR-AUC={pr_auc:.3f} recall={metrics['test_recall']:.3f} "
+          f"prec={metrics['test_precision']:.3f} F1={macro_f1:.3f} thr={threshold:.4f} "
+          f"({threshold_rule}) -> {status} {flags}")
     return metrics
 
 
 def write_summary(all_metrics):
     lines = ["# Training Summary", "",
-             "| Disease | Rows | CV AUC | Test AUC | Recall | Macro F1 | Brier | Status | Flags |",
-             "|---|---|---|---|---|---|---|---|---|"]
+             "| Disease | Rows | CV AUC | Test AUC | PR-AUC | Recall | Precision | Macro F1 | Brier (skill) | Status | Flags |",
+             "|---|---|---|---|---|---|---|---|---|---|---|"]
     for m in all_metrics:
+        skill = m.get("brier_skill_score")
+        brier = f"{m['brier_score']}"
+        if skill is not None:
+            brier += f" ({skill:+.3f})"
         lines.append(f"| {m['disease']} | {m['rows']} | {m['cv_auc_mean']}±{m['cv_auc_std']} | "
-                     f"{m['test_auc']} | {m['test_recall']} | {m['test_macro_f1']} | "
-                     f"{m['brier_score']} | {m['status']} | {', '.join(m['flags']) or '-'} |")
+                     f"{m['test_auc']} | {m.get('test_pr_auc', '-')} | {m['test_recall']} | "
+                     f"{m.get('test_precision', '-')} | {m['test_macro_f1']} | {brier} | "
+                     f"{m['status']} | {', '.join(m['flags']) or '-'} |")
     lines += [
         "", "## Legend", "",
         f"- **PASS** = test AUC >= {TARGET_AUC} AND macro F1 >= {TARGET_MACRO_F1}",
         "- **BELOW_TARGET** = at least one target missed (mostly data-limited — see flags below)",
+        "- **RULE_SERVED** = the ML artifact is mathematically the clinical rule (label derived "
+        "from the same item scores), so it is NOT counted as an accuracy result; the app serves "
+        "the rule (`ScreeningClassifier.score_gad7`, PHQ-9 severity rule)",
         "- **LOW_FEATURE_MODEL** = the source dataset does not collect some app features, so the "
         "model cannot use them (honest limitation, not a bug)",
         "- **SMALL_DATASET** = fewer than 500 rows",
         "- **HEAVY_IMBALANCE** = positive rate below 10% or above 90%",
+        "- **RULE_EQUIVALENT_MODEL** = label derived from the features by design; ML adds no signal",
         "- **EXPECTED_LEAKAGE_LABEL_FROM_FEATURES** = the label is derived from the features by "
         "design (mirrors the app's clinical rule for the PHQ-9/GAD-7 screeners), so the near-perfect "
         "AUC is expected and the ML model adds no new signal over the rule",
         "- **SUSPICIOUS_POSSIBLE_LEAKAGE** = test AUC > 0.97 without a documented reason — "
         "investigate before trusting",
+        "- **PR-AUC** = average precision — the imbalance-aware companion to ROC-AUC (the primary "
+        "read for rare outcomes such as colorectal)",
+        "- **Brier (skill)** = Brier score with its skill score in brackets; `+` means better than "
+        "the trivial constant-probability baseline, `−` means worse",
+        "- **Threshold rule** — rare diseases (positive rate < 10%) maximise F2 **subject to** a "
+        "0.30 precision floor **and** a minimum flag rate of 2% (a well-calibrated rare-disease "
+        "model sits near its prevalence, so without the rate guard the cut-off lands above every "
+        "probability and the tool flags nobody — recall 0). Fallback when the floor is unreachable: "
+        "**Youden's J** within the same rate guard. Common diseases keep plain argmax-F2 "
+        "(per-disease value: `ml/reports/<disease>_metrics.json`, key `threshold_rule`)",
     ]
     # encoding pinned: the table carries "±" and the console locale on Windows is cp1252
     (REPORTS_DIR / "SUMMARY.md").write_text("\n".join(lines) + "\n", encoding="utf-8")

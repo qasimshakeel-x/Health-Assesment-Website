@@ -1,8 +1,8 @@
 {
   "disease": "colorectal",
-  "dataset": "NHANES 2017-2018 (J) MCQ_J MCQ230A-D, code 16 (colon) / 31 (rectum), age>=40 (app gate). Only 4 of the 9 app features exist in NHANES and there are just 55 cases (1.4%) -> LOW_FEATURE_MODEL + HEAVY_IMBALANCE and a weak AUC, exactly as ML_TRAINING \u00a76 predicts for a dataset this small.",
-  "rows": 3882,
-  "positive_rate": 0.0142,
+  "dataset": "NHANES 2009-2018 pooled (F+G+H+I+J) - MCQ230A-D, code 16 (colon) / 31 (rectum), age>=40 (app gate). Only 4 of the 9 app features exist in NHANES; 19,201 rows / 215 cases (1.1%) -> LOW_FEATURE_MODEL + HEAVY_IMBALANCE. S18 pooled H+I+J (11,463 rows / 120 cases); this pass added the 2009-2012 cycles F/G. The earlier single-cycle test AUC 0.694 was small-sample luck; judge the pooled score as the honest estimate.",
+  "rows": 19201,
+  "positive_rate": 0.0112,
   "features": [
     "age",
     "family_cancer",
@@ -14,14 +14,31 @@
     "bowel_change",
     "colorectal_weight_loss"
   ],
-  "cv_auc_mean": 0.5785,
-  "cv_auc_std": 0.0448,
-  "test_auc": 0.6942,
-  "test_recall": 0.0909,
-  "test_precision": 0.0435,
-  "test_macro_f1": 0.5189,
-  "brier_score": 0.0139,
-  "threshold": 0.0177,
+  "cv_auc_mean": 0.7176,
+  "cv_auc_std": 0.0572,
+  "test_auc": 0.7716,
+  "test_pr_auc": 0.029,
+  "test_recall": 0.7674,
+  "test_precision": 0.0263,
+  "test_specificity": 0.678,
+  "test_npv": 0.9961,
+  "test_macro_f1": 0.4288,
+  "test_positives": 43,
+  "test_negatives": 3798,
+  "brier_score": 0.011,
+  "brier_baseline": 0.0111,
+  "brier_skill_score": 0.009,
+  "ece": 0.0001,
+  "test_auc_ci95": [
+    0.7132,
+    0.8236
+  ],
+  "test_macro_f1_ci95": [
+    0.4199,
+    0.4399
+  ],
+  "threshold": 0.0114,
+  "threshold_rule": "max_youden_j&rate>=0.02(precision floor unreachable)",
   "targets": {
     "auc": 0.85,
     "macro_f1": 0.8
@@ -39,10 +56,10 @@
     "colorectal_weight_loss"
   ],
   "top_features_shap": {
-    "age": 0.7173,
-    "exercise_level": 0.2168,
-    "smoking": 0.1522,
-    "alcohol": 0.0699
+    "age": 0.9068,
+    "exercise_level": 0.1668,
+    "smoking": 0.1593,
+    "alcohol": 0.0195
   },
-  "trained_at": "2026-10-14T19:13:25.059278+00:00"
+  "trained_at": "2026-10-18T14:08:19.888452+00:00"
 }

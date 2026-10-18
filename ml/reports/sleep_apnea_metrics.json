@@ -15,11 +15,28 @@
   "cv_auc_mean": 0.9128,
   "cv_auc_std": 0.0642,
   "test_auc": 0.9529,
+  "test_pr_auc": 0.7265,
   "test_recall": 1.0,
   "test_precision": 0.7619,
+  "test_specificity": 0.9153,
+  "test_npv": 1.0,
   "test_macro_f1": 0.9103,
+  "test_positives": 16,
+  "test_negatives": 59,
   "brier_score": 0.0613,
+  "brier_baseline": 0.1678,
+  "brier_skill_score": 0.635,
+  "ece": 0.082,
+  "test_auc_ci95": [
+    0.898,
+    0.9967
+  ],
+  "test_macro_f1_ci95": [
+    0.8222,
+    0.9796
+  ],
   "threshold": 0.1501,
+  "threshold_rule": "max_f2",
   "targets": {
     "auc": 0.85,
     "macro_f1": 0.8
@@ -40,5 +57,5 @@
     "gender": 0.3405,
     "wake_tired": 0.0737
   },
-  "trained_at": "2026-10-14T19:16:09.392818+00:00"
+  "trained_at": "2026-10-17T17:22:06.044900+00:00"
 }

@@ -1,14 +1,28 @@
 {
   "disease_key": "sleep_apnea",
-  "trained_at": "2026-10-14T19:16:09.392818Z",
+  "trained_at": "2026-10-17T17:22:06.044900Z",
   "dataset": "Kaggle Sleep Health & Lifestyle survey (374 rows, CC0) \u2014 Sleep Disorder==Sleep Apnea label; BMI derived from BMI category, wake_tired<-sleep quality, daytime_sleepy<-stress. SMALL_DATASET.",
   "dataset_version": "v1",
   "n_samples": 374,
   "metrics": {
     "auc_roc": 0.9528601694915253,
+    "pr_auc": 0.7264534944222445,
     "macro_f1": 0.9103085386271228,
     "test_recall": 1.0,
-    "brier_score": 0.0613
+    "test_precision": 0.7619,
+    "test_specificity": 0.9153,
+    "brier_score": 0.0613,
+    "brier_baseline": 0.1678,
+    "brier_skill_score": 0.635,
+    "ece": 0.082,
+    "auc_ci95": [
+      0.898,
+      0.9967
+    ],
+    "macro_f1_ci95": [
+      0.8222,
+      0.9796
+    ]
   },
   "features": [
     "age",
@@ -20,6 +34,7 @@
     "daytime_sleepy"
   ],
   "threshold": 0.1501,
+  "threshold_rule": "max_f2",
   "threshold_met": true,
   "flags": [
     "SMALL_DATASET",

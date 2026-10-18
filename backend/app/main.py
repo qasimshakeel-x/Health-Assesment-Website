@@ -82,7 +82,7 @@ async def add_security_headers(request, call_next):
     return response
 
 # Import and register routers
-from backend.app.routes import auth, predict, shap, simulate, chat, reports, admin, diseases
+from backend.app.routes import auth, predict, shap, simulate, chat, reports, admin, diseases, intake
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
@@ -92,6 +92,8 @@ app.include_router(simulate.router, prefix="/api/v1/simulate", tags=["Simulate"]
 app.include_router(chat.router, prefix="/api/v1/chat", tags=["Chat"])
 app.include_router(reports.router, prefix="/api/v1/reports", tags=["Reports"])
 app.include_router(diseases.router, prefix="/api/v1/diseases", tags=["Diseases"])
+# Assessment Form Helper — LLM proxy (keys server-side, /intake/chat)
+app.include_router(intake.router, prefix="/api/v1/intake", tags=["Intake Assistant"])
 # 05-API-SPEC §3 — screening metadata ka path `/screenings/...` hai (diseases prefix ke bahar)
 app.include_router(diseases.screenings_router, prefix="/api/v1/screenings", tags=["Screenings"])
 

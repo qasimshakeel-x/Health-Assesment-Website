@@ -1,8 +1,8 @@
 {
   "disease": "anemia",
-  "dataset": "NHANES 2017-2018 (J) \u2014 label = haemoglobin < WHO cut-off (13.0 M / 12.0 F); no lab features used (app-aligned). LOW_FEATURE_MODEL.",
+  "dataset": "NHANES 2013-2018 (H+I+J pooled, 3,000-row seeded cap) - label = haemoglobin < WHO cut-off (13.0 M / 12.0 F); multi-cycle pool (was 2017-18 only); no lab features used (app-aligned). LOW_FEATURE_MODEL.",
   "rows": 3000,
-  "positive_rate": 0.159,
+  "positive_rate": 0.1713,
   "features": [
     "gender",
     "age",
@@ -12,14 +12,31 @@
     "lightheadedness",
     "brittle_nails"
   ],
-  "cv_auc_mean": 0.7594,
-  "cv_auc_std": 0.0321,
-  "test_auc": 0.7558,
-  "test_recall": 0.7474,
-  "test_precision": 0.2572,
-  "test_macro_f1": 0.5533,
-  "brier_score": 0.113,
-  "threshold": 0.1246,
+  "cv_auc_mean": 0.7756,
+  "cv_auc_std": 0.0448,
+  "test_auc": 0.7713,
+  "test_pr_auc": 0.5305,
+  "test_recall": 0.8447,
+  "test_precision": 0.2377,
+  "test_specificity": 0.4386,
+  "test_npv": 0.9316,
+  "test_macro_f1": 0.4837,
+  "test_positives": 103,
+  "test_negatives": 497,
+  "brier_score": 0.1104,
+  "brier_baseline": 0.1422,
+  "brier_skill_score": 0.2236,
+  "ece": 0.0163,
+  "test_auc_ci95": [
+    0.7176,
+    0.8266
+  ],
+  "test_macro_f1_ci95": [
+    0.4439,
+    0.5227
+  ],
+  "threshold": 0.1001,
+  "threshold_rule": "max_f2",
   "targets": {
     "auc": 0.85,
     "macro_f1": 0.8
@@ -36,8 +53,8 @@
     "brittle_nails"
   ],
   "top_features_shap": {
-    "age": 0.8406,
-    "gender": 0.3102
+    "age": 0.8465,
+    "gender": 0.3296
   },
-  "trained_at": "2026-10-14T19:15:28.375762+00:00"
+  "trained_at": "2026-10-18T15:35:25.510417+00:00"
 }

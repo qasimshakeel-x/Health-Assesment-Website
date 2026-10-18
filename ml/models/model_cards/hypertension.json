@@ -1,14 +1,28 @@
 {
   "disease_key": "hypertension",
-  "trained_at": "2026-10-15T13:36:46.866800Z",
+  "trained_at": "2026-10-17T17:24:17.546297Z",
   "dataset": "NHANES 2017-2018 (J) \u2014 label = measured BP (mean SBP>=130 or DBP>=80); BP deliberately excluded from features (ML_TRAINING \u00a75 label-from-feature).",
   "dataset_version": "v1",
   "n_samples": 3000,
   "metrics": {
     "auc_roc": 0.8098721962986879,
+    "pr_auc": 0.6260542962731835,
     "macro_f1": 0.622119918404655,
     "test_recall": 0.9668,
-    "brier_score": 0.1664
+    "test_precision": 0.4823,
+    "test_specificity": 0.437,
+    "brier_score": 0.1664,
+    "brier_baseline": 0.228,
+    "brier_skill_score": 0.2703,
+    "ece": 0.0293,
+    "auc_ci95": [
+      0.7789,
+      0.8418
+    ],
+    "macro_f1_ci95": [
+      0.5822,
+      0.6573
+    ]
   },
   "features": [
     "age",
@@ -27,6 +41,7 @@
     "blurred_vision"
   ],
   "threshold": 0.1117,
+  "threshold_rule": "max_f2",
   "threshold_met": false,
   "flags": [
     "LOW_FEATURE_MODEL"

@@ -1,14 +1,28 @@
 {
   "disease_key": "anemia",
-  "trained_at": "2026-10-14T19:15:28.375762Z",
-  "dataset": "NHANES 2017-2018 (J) \u2014 label = haemoglobin < WHO cut-off (13.0 M / 12.0 F); no lab features used (app-aligned). LOW_FEATURE_MODEL.",
+  "trained_at": "2026-10-18T15:35:25.510417Z",
+  "dataset": "NHANES 2013-2018 (H+I+J pooled, 3,000-row seeded cap) - label = haemoglobin < WHO cut-off (13.0 M / 12.0 F); multi-cycle pool (was 2017-18 only); no lab features used (app-aligned). LOW_FEATURE_MODEL.",
   "dataset_version": "v1",
   "n_samples": 3000,
   "metrics": {
-    "auc_roc": 0.7558103178738926,
-    "macro_f1": 0.5532564483562503,
-    "test_recall": 0.7474,
-    "brier_score": 0.113
+    "auc_roc": 0.771317223730734,
+    "pr_auc": 0.530462396791197,
+    "macro_f1": 0.48372268032516724,
+    "test_recall": 0.8447,
+    "test_precision": 0.2377,
+    "test_specificity": 0.4386,
+    "brier_score": 0.1104,
+    "brier_baseline": 0.1422,
+    "brier_skill_score": 0.2236,
+    "ece": 0.0163,
+    "auc_ci95": [
+      0.7176,
+      0.8266
+    ],
+    "macro_f1_ci95": [
+      0.4439,
+      0.5227
+    ]
   },
   "features": [
     "gender",
@@ -19,7 +33,8 @@
     "lightheadedness",
     "brittle_nails"
   ],
-  "threshold": 0.1246,
+  "threshold": 0.1001,
+  "threshold_rule": "max_f2",
   "threshold_met": false,
   "flags": [
     "LOW_FEATURE_MODEL"

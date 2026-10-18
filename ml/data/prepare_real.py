@@ -19,6 +19,7 @@ Run:  python ml/data/prepare_real.py
 """
 from __future__ import annotations
 
+import glob
 import os
 import numpy as np
 import pandas as pd
@@ -34,6 +35,14 @@ OUT = os.path.join("ml", "data", "real")
 # ml/data/README.md as a limitation.
 NHANES_MAX_ROWS = 3000
 NHANES_DISEASES = {"diabetes", "hypertension", "obesity", "anemia", "metabolic_syndrome"}
+
+# BRFSS (CDC "Behavioral Risk Factor Surveillance System") is the free, credential-free item on
+# the dataset-accuracy TODO: ~400 k US adults x 500+ columns, one zip of 60-90 MB from
+# https://www.cdc.gov/brfss/annual_data/<year>/files/LLCP<year>XPT.zip (see ml/data/README.md).
+# Capped like NHANES so the 36-fits-per-disease spec pipeline stays tractable on this 4 GB box.
+BRFSS_YEAR = "2025"
+BRFSS_MAX_ROWS = 6000
+BRFSS_DISEASES = {"heart", "stroke"}
 
 # App inference feature order (must match ml/models/disease_risk.py, phase2_risk.py)
 F = {
@@ -108,11 +117,15 @@ def _yn(s):
     return s.map(one)
 
 
-def _cap_stratified(df, target="target"):
-    """Seeded, target-stratified subsample down to NHANES_MAX_ROWS (see the note above)."""
-    if len(df) <= NHANES_MAX_ROWS:
+def _cap_stratified(df, target="target", max_rows=None):
+    """Seeded, target-stratified subsample down to `max_rows` (default NHANES_MAX_ROWS).
+
+    Shared by the NHANES and the BRFSS sources (see the note above).
+    """
+    max_rows = NHANES_MAX_ROWS if max_rows is None else max_rows
+    if len(df) <= max_rows:
         return df
-    frac = NHANES_MAX_ROWS / len(df)
+    frac = max_rows / len(df)
     parts = [g.sample(n=max(2, int(round(frac * len(g)))), random_state=42)
              for _, g in df.groupby(target)]
     return pd.concat(parts).sample(frac=1.0, random_state=42)
@@ -128,7 +141,16 @@ def _write(name, df, note):
     out["target"] = (pd.to_numeric(df["target"], errors="coerce") if "target" in df.columns
                      else np.nan)
     out = out[out["target"].notna()].copy()
-    if name in NHANES_DISEASES:
+    if not len(out):
+        # Safety net: a renamed/missing source label would otherwise truncate this dataset to a
+        # header-only CSV and only fail much later, away from the cause. Keep the old good file.
+        REPORT.append({"disease": name, "rows": 0, "dropped_dup": 0, "pos_rate": None,
+                       "note": "EMPTY - no usable label in source; existing CSV kept"})
+        print(f"[EMPTY]  {name:14s} 0 rows -> kept any existing {name}.csv (check source cols)")
+        return
+    if name in BRFSS_DISEASES:
+        out = _cap_stratified(out, max_rows=BRFSS_MAX_ROWS)
+    elif name in NHANES_DISEASES:
         out = _cap_stratified(out)
     # NOTE: no row de-duplication here — NHANES repeated (coarse) feature combos are
     # legitimate distinct subjects and dropping them would gut the dataset (ML_TRAINING §5
@@ -154,22 +176,42 @@ def _nhanes_merge(frames):
     return df
 
 
-def _nhanes_base():
-    """Demographics + BMI + smoking + alcohol + physical activity (app base features)."""
-    demo = _xpt("DEMO_J.xpt")[["SEQN", "RIAGENDR", "RIDAGEYR", "INDFMPIR"]].rename(
+def _bpx_means(bpx):
+    """Mean systolic / diastolic BP over whichever BPXSY1-4 / BPXDI1-4 readings exist."""
+    sys_cols = [c for c in bpx.columns if c.startswith("BPXSY")]
+    dia_cols = [c for c in bpx.columns if c.startswith("BPXDI")]
+    return bpx[sys_cols].mean(axis=1), bpx[dia_cols].mean(axis=1)
+
+
+def _nhanes_base(suffix="J"):
+    """Demographics + BMI + smoking + alcohol + physical activity (app base features).
+
+    `suffix` = NHANES cycle letter: `J` 2017-18 (default, all single-cycle app datasets),
+    `I` 2015-16, `H` 2013-14, `G` 2011-12, `F` 2009-10 (multi-cycle pooled diseases — see
+    `prepare_nhanes_colorectal` / `prepare_nhanes_ckd` / `prepare_nhanes_liver`). SEQN is
+    unique across cycles, so the per-cycle frames can be concatenated without collisions.
+
+    Variable availability differs slightly between cycles: the "ever had a drink" question is
+    ALQ111 in 2015-18 but ALQ101 (had >=12 drinks in lifetime) in 2009-14; sleep hours are
+    SLD012/SLD013 in 2013-18 but SLD010H in 2009-12; PAD615/PAD630 (leisure-activity minutes)
+    are guarded with `in columns` checks below. NOTE (coarse, documented): PAD615/PAD630 are
+    per-week minutes in 2013-18 but per-DAY minutes in 2009-12, so the 150 cut separates
+    active from inactive within each cycle but is not comparable across cycles.
+    """
+    demo = _xpt(f"DEMO_{suffix}.xpt")[["SEQN", "RIAGENDR", "RIDAGEYR", "INDFMPIR"]].rename(
         columns={"RIAGENDR": "gender", "RIDAGEYR": "age", "INDFMPIR": "income_ratio"})
     demo["gender"] = demo["gender"].map({1: 1, 2: 0})          # app: 1=Male, 0=Female
-    bmx = _xpt("BMX_J.xpt")[["SEQN", "BMXBMI"]].rename(columns={"BMXBMI": "bmi"})
+    bmx = _xpt(f"BMX_{suffix}.xpt")[["SEQN", "BMXBMI"]].rename(columns={"BMXBMI": "bmi"})
     # smoking: SMQ020 ever smoked 100 cigarettes (1=yes,2=no)
-    smq = _xpt("SMQ_J.xpt")[["SEQN", "SMQ020"]].rename(columns={"SMQ020": "smoking"})
+    smq = _xpt(f"SMQ_{suffix}.xpt")[["SEQN", "SMQ020"]].rename(columns={"SMQ020": "smoking"})
     smq["smoking"] = smq["smoking"].map({1: 1.0, 2: 0.0})
-    # alcohol: ALQ111 ever had a drink of any kind of alcohol (1=yes,2=no)
-    alq = _xpt("ALQ_J.xpt")
-    alq_col = "ALQ111" if "ALQ111" in alq.columns else alq.columns[1]
+    # alcohol: ALQ111 (2015-18) / ALQ101 (2013-14) ever had a drink (1=yes,2=no)
+    alq = _xpt(f"ALQ_{suffix}.xpt")
+    alq_col = next((c for c in ("ALQ111", "ALQ101") if c in alq.columns), alq.columns[1])
     alq = alq[["SEQN", alq_col]].rename(columns={alq_col: "alcohol"})
     alq["alcohol"] = alq["alcohol"].map({1: 1.0, 2: 0.0})
     # physical activity: PAQ (PAD615 vigorous min/week, PAD630 moderate) -> 0/1/2 level
-    paq = _xpt("PAQ_J.xpt")
+    paq = _xpt(f"PAQ_{suffix}.xpt")
     cols = [c for c in ("PAD615", "PAD630", "PAQ620", "PAQ665") if c in paq.columns]
     paq = paq[["SEQN"] + cols].copy()
     active_min = pd.Series(0.0, index=paq.index)
@@ -180,9 +222,9 @@ def _nhanes_base():
     paq = paq[["SEQN", "exercise_level"]]
     # sleep hours: SLD012/SLD013 are the derived weekday/weekend HOURS. (SLQ300/SLQ310 are
     # reported bed/wake TIMES like b'23:00' — not hours, and to_numeric() would blank them.)
-    slq = _xpt("SLQ_J.xpt")
+    slq = _xpt(f"SLQ_{suffix}.xpt")
     hours = None
-    for c in ("SLD012", "SLD013"):
+    for c in ("SLD012", "SLD013", "SLD010H"):      # SLD010H = 2009-2012 naming
         if c in slq.columns:
             v = pd.to_numeric(slq[c], errors="coerce")
             hours = v if hours is None else hours.fillna(v)
@@ -206,8 +248,7 @@ def prepare_nhanes_diabetes():
 def prepare_nhanes_hypertension():
     base = _nhanes_base()
     bpx = _xpt("BPX_J.xpt")
-    sys_mean = bpx[["BPXSY1", "BPXSY2", "BPXSY3", "BPXSY4"]].mean(axis=1)
-    dia_mean = bpx[["BPXDI1", "BPXDI2", "BPXDI3", "BPXDI4"]].mean(axis=1)
+    sys_mean, dia_mean = _bpx_means(bpx)
     bpx = bpx[["SEQN"]].copy()
     bpx["target"] = ((sys_mean >= 130) | (dia_mean >= 80)).astype(float)
     bpx.loc[sys_mean.isna() | dia_mean.isna(), "target"] = np.nan
@@ -227,17 +268,28 @@ def prepare_nhanes_obesity():
 
 
 def prepare_nhanes_anemia():
-    base = _nhanes_base()
-    cbc = _xpt("CBC_J.xpt")[["SEQN", "LBXHGB"]]
-    df = base.merge(cbc, on="SEQN", how="left")
-    hgb = df["LBXHGB"]
-    # WHO anemia thresholds: <13.0 male, <12.0 female
-    thr = np.where(df["gender"] == 1, 13.0, 12.0)
-    df["target"] = (hgb < thr).astype(float)
-    df.loc[hgb.isna(), "target"] = np.nan
-    # §5 trap: label derived from hemoglobin -> HGB not a feature (app has no lab input anyway)
-    _write("anemia", df, "NHANES J hemoglobin < WHO threshold (13.0 M / 12.0 F); "
-                         "no lab features used (app-aligned)")
+    """NHANES hemoglobin (CBC) pooled H+I+J -> Phase-2 `anemia` vector (multi-cycle upgrade).
+
+    The single 2017-18 cycle carried ~8.5 k adults / ~1.3 k cases; pooling three cycles
+    triples the diversity behind the seeded 3 000-row cap (NHANES_DISEASES). App symptom
+    columns (diet/fatigue/pale/lightheaded/brittle nails) are not collected in NHANES (NaN),
+    so this stays LOW_FEATURE_MODEL (age + gender are the only app-usable columns).
+    """
+    frames = []
+    for s in ("H", "I", "J"):
+        base = _nhanes_base(s)
+        cbc = _xpt(f"CBC_{s}.xpt")[["SEQN", "LBXHGB"]]
+        df = base.merge(cbc, on="SEQN", how="inner")
+        hgb = df["LBXHGB"]
+        # WHO anemia thresholds: <13.0 male, <12.0 female
+        thr = np.where(df["gender"] == 1, 13.0, 12.0)
+        df["target"] = (hgb < thr).astype(float)
+        df.loc[hgb.isna(), "target"] = np.nan
+        frames.append(df)
+    df = pd.concat(frames, ignore_index=True)
+    _write("anemia", df, "NHANES 2013-2018 (H+I+J) hemoglobin < WHO threshold (13.0 M / 12.0 F); "
+                         "multi-cycle pool; no lab features used (app-aligned); app symptoms "
+                         "not collected (NaN)")
 
 
 def prepare_nhanes_sleep_apnea():
@@ -313,36 +365,66 @@ def prepare_metabolic_syndrome():
 
 
 # ─────────────────────────────────────────────────────────────── non-NHANES
-def prepare_ckd():
-    df = _raw_csv("ckd.csv")
-    df.columns = [c.strip() for c in df.columns]
-    out = pd.DataFrame({
-        "age": pd.to_numeric(df["age"], errors="coerce"),
-        "bp_systolic": pd.to_numeric(df["bp"], errors="coerce"),
-        "diabetes_flag": _yn(df["dm"]),
-        "hypertension_flag": _yn(df["htn"]),
-    })
-    out["target"] = df["classification"].astype(str).str.strip().str.lower().map(
-        {"ckd": 1.0, "notckd": 0.0})
-    # symptoms (ankle_swelling/urination/ckd_fatigue) are not in UCI CKD -> NaN
-    _write("ckd", out, "UCI CKD (400 rows) mapped to app vector: age, bp->bp_systolic, "
-                       "dm/htn->flags; symptoms NaN (not in dataset)")
+def _nhanes_ckd_cycle(suffix):
+    """One NHANES cycle -> CKD label (KIQ022) + the app columns NHANES can supply."""
+    base = _nhanes_base(suffix)
+    bpx = _xpt(f"BPX_{suffix}.xpt")
+    sys_mean, _ = _bpx_means(bpx)
+    bpx = bpx[["SEQN"]].assign(bp_systolic=sys_mean)
+    diq = _xpt(f"DIQ_{suffix}.xpt")[["SEQN", "DIQ010"]].copy()
+    diq["diabetes_flag"] = diq["DIQ010"].map({1: 1.0, 2: 0.0})   # 3 = borderline -> NaN
+    diq = diq[["SEQN", "diabetes_flag"]]
+    bpq = _xpt(f"BPQ_{suffix}.xpt")[["SEQN", "BPQ020"]].rename(
+        columns={"BPQ020": "hypertension_flag"})
+    bpq["hypertension_flag"] = bpq["hypertension_flag"].map({1: 1.0, 2: 0.0})
+    kiq = _xpt(f"KIQ_U_{suffix}.xpt")[["SEQN", "KIQ022", "KIQ480"]].copy()
+    kiq["target"] = kiq["KIQ022"].map({1: 1.0, 2: 0.0})       # 9 = don't know -> NaN
+    # KIQ480 = "how many times urinate at night" (1..5+; asked of KIQ005 respondents).
+    # Nocturia >= 2/night is the app's "urination changes" yes; refused/DK -> NaN.
+    kiq["urination_changes"] = np.nan
+    ok = kiq["KIQ480"].between(1, 5)
+    kiq.loc[ok, "urination_changes"] = (kiq.loc[ok, "KIQ480"] >= 2).astype(float)
+    return _nhanes_merge([base, bpx, diq, bpq, kiq[["SEQN", "target", "urination_changes"]]])
 
 
-def prepare_liver():
-    # ILPD CSV from UCI has NO header row
-    cols = ["Age", "Gender", "Total_Bilirubin", "Direct_Bilirubin", "Alkaline_Phosphotase",
-            "Alamine_Aminotransferase", "Aspartate_Aminotransferase", "Total_Protiens",
-            "Albumin", "Albumin_and_Globulin_Ratio", "Dataset"]
-    df = pd.read_csv(os.path.join(RAW, "ilpd.csv"), names=cols)
-    out = pd.DataFrame({
-        "age": pd.to_numeric(df["Age"], errors="coerce"),
-        "gender": df["Gender"].astype(str).str.strip().str.lower().map({"male": 1.0, "female": 0.0}),
-        "alcohol": np.nan,
-    })
-    out["target"] = pd.to_numeric(df["Dataset"], errors="coerce").map({1: 1.0, 2: 0.0})
-    _write("liver", out, "ILPD (UCI, 583 rows): only age/gender are app-available; "
-                         "ILPD has no alcohol column and no symptoms -> NaN")
+def prepare_nhanes_ckd():
+    """NHANES KIQ_U kidney questions pooled H+I+J -> Phase-2 `ckd` vector (dataset-accuracy TODO).
+
+    Replaces the 400-row UCI CKD file, whose AUC 0.955 was inflated: 400 rows, and the dm/htn
+    flags double as inputs to the clinical label. Label = KIQ022 "ever told weak/failing
+    kidneys" (3.2-4.2% of adults, ~660 cases over 3 cycles). Real app columns: age, measured
+    bp_systolic (BPX), diabetes_flag (DIQ010), hypertension_flag (BPQ020), urination_changes
+    (KIQ480 nocturia >=2). ankle_swelling / ckd_fatigue are not collected in NHANES (NaN).
+    Deliberately NOT in NHANES_DISEASES: capping to 3 000 rows would throw away most positives.
+    """
+    df = pd.concat([_nhanes_ckd_cycle(s) for s in ("H", "I", "J")], ignore_index=True)
+    _write("ckd", df, "NHANES 2013-2018 (H+I+J) pooled: label KIQ022 (ever told weak/failing "
+                      "kidneys); age/measured-BP (BPX)/diabetes (DIQ010)/high-BP history "
+                      "(BPQ020)/nocturia >=2 (KIQ480) real; ankle-swelling & fatigue not "
+                      "collected (NaN); replaces the inflated 400-row UCI set; unweighted")
+
+
+def prepare_nhanes_liver():
+    """NHANES MCQ liver questions pooled H+I+J -> Phase-2 `liver` vector (dataset-accuracy TODO).
+
+    Replaces UCI ILPD (583 rows, age/gender usable). Label = MCQ160L "ever told you had any
+    liver condition" (2.4-3.3% of adults, ~480 cases over 3 cycles). Real app columns: age,
+    gender, bmi, alcohol (ALQ ever-drink), jaundice (MCQ203); abdominal_pain / liver_fatigue
+    are not collected in NHANES (NaN). MCQ203 was new in 2013-14, hence cycles H+I+J (not F/G).
+    Deliberately NOT in NHANES_DISEASES: capping would throw away most positives.
+    """
+    frames = []
+    for s in ("H", "I", "J"):
+        base = _nhanes_base(s)
+        mcq = _xpt(f"MCQ_{s}.xpt")[["SEQN", "MCQ160L", "MCQ203"]].copy()
+        mcq["target"] = mcq["MCQ160L"].map({1: 1.0, 2: 0.0})   # 7/9 -> NaN
+        mcq["jaundice"] = mcq["MCQ203"].map({1: 1.0, 2: 0.0})
+        frames.append(base.merge(mcq[["SEQN", "target", "jaundice"]], on="SEQN", how="inner"))
+    df = pd.concat(frames, ignore_index=True)
+    _write("liver", df, "NHANES 2013-2018 (H+I+J) pooled: label MCQ160L (ever told any liver "
+                        "condition); age/gender/bmi/alcohol (ALQ ever-drink)/jaundice (MCQ203) "
+                        "real; abdominal-pain & fatigue not collected (NaN); replaces 583-row "
+                        "UCI ILPD; unweighted sample")
 
 
 def prepare_thyroid():
@@ -364,7 +446,7 @@ def prepare_thyroid():
                            "TSH/T3/TT4 are labs the app does not collect -> excluded, symptoms NaN")
 
 
-def prepare_heart():
+def _prepare_heart_cleveland():
     cols = ["age", "sex", "cp", "trestbps", "chol", "fbs", "restecg", "thalach", "exang",
             "oldpeak", "slope", "ca", "thal", "num"]
     df = pd.read_csv(os.path.join(RAW, "processed.cleveland.data"), names=cols, na_values="?")
@@ -384,7 +466,7 @@ def prepare_heart():
                          "smoking & BP not in app heart vector (kept NaN)")
 
 
-def prepare_stroke():
+def _prepare_stroke_kaggle():
     df = _raw_csv("stroke.csv")
     out = pd.DataFrame({
         "age": pd.to_numeric(df["age"], errors="coerce"),
@@ -515,35 +597,170 @@ def prepare_depression():
                               "mirrors the app's PHQ-9 severity rule)")
 
 
-def prepare_nhanes_colorectal():
-    """NHANES 2017-2018 MCQ_J — ever told you had colon/rectum cancer.
+def _colorectal_cycle(suffix):
+    """One NHANES cycle → ever-told colon/rectum cancer (MCQ230A-D code 16 / 31), age >= 40.
 
-    Real, but tiny (55 cases) and only 4 of the app's 9 columns exist in NHANES, so the honest
-    outcome is a weak model (ML_TRAINING §6: "tiny Kaggle-scale datasets -> do not trust high
-    scores"). Deliberately NOT in NHANES_DISEASES: capping to 3 000 rows would throw away ~13 of
-    the 55 positives.
+    Returns None when the cycle's MCQ file has no MCQ230* columns (variable renamed) so a single
+    unreadable cycle cannot silently poison the pool with mislabelled rows. The MCQ230 cancer-
+    type codes are identical across the 2009-2018 cycles (verified against the F/G codebooks).
     """
-    base = _nhanes_base()
-    mcq = _xpt("MCQ_J.xpt")
+    base = _nhanes_base(suffix)
+    mcq = _xpt(f"MCQ_{suffix}.xpt")
     cols = [c for c in mcq.columns if str(c).upper().startswith("MCQ230")]
     if not cols:
-        print("[skip] colorectal: no MCQ230* columns in MCQ_J.xpt")
-        return
+        print(f"[warn] colorectal {suffix}: no MCQ230* columns -> cycle skipped")
+        return None
     ever = mcq[cols].isin([16.0, 31.0]).any(axis=1).astype(float)   # 16=Colon, 31=Rectum
     df = base.merge(mcq[["SEQN"]].assign(target=ever), on="SEQN", how="inner")
-    df = df[df["age"] >= 40]                    # app gate: the colorectal module is 40+
-    _write("colorectal", df, "NHANES 2017-2018 J MCQ_J MCQ230A-D code 16 (colon) / 31 (rectum), "
-                             "age>=40 (app gate). Family history / symptoms / diet are not "
-                             "collected in NHANES -> LOW_FEATURE_MODEL; only 55 cases -> "
-                             "HEAVY_IMBALANCE and a weak AUC, as ML_TRAINING §6 predicts")
+    return df[df["age"] >= 40]                  # app gate: the colorectal module is 40+
+
+
+_CRC_CYCLES = ("F", "G", "H", "I", "J")         # NHANES 2009-10 .. 2017-18
+
+
+def prepare_nhanes_colorectal():
+    """NHANES MCQ230A-D (colon/rectum cancer) pooled over 2009-10 (F) .. 2017-18 (J).
+
+    S18 pooled H+I+J (3 882/55 -> 11 463/120 cases); this pass adds the two earlier cycles
+    (F/G, ~7 700 more 40+ adults) for a further positive-count bump. Still LOW_FEATURE_MODEL:
+    family history / symptoms / diet are not collected in NHANES.
+    Deliberately NOT in NHANES_DISEASES: capping to 3 000 rows would throw away most positives.
+    """
+    frames = [d for d in (_colorectal_cycle(s) for s in _CRC_CYCLES) if d is not None]
+    if not frames:
+        print("[skip] colorectal: no usable NHANES cycle (MCQ230* missing)")
+        return
+    df = pd.concat(frames, ignore_index=True)
+    cycles = "+".join(_CRC_CYCLES)
+    _write("colorectal", df, f"NHANES {cycles} MCQ230A-D code 16 (colon) / 31 (rectum), age>=40 "
+                             "(app gate), five cycles pooled. Family history / symptoms / diet are "
+                             "not collected in NHANES -> LOW_FEATURE_MODEL")
+
+
+# ─────────────────────────────────────────────────────────────── BRFSS (CDC, free)
+# Raw: unzip `LLCP<year>XPT.zip` from
+#   https://www.cdc.gov/brfss/annual_data/<year>/files/LLCP<year>XPT.zip
+# into `ml/data/real/raw/` — no credentials, unlike BioLINCC/PhysioNet/NSRR. The 2025 file has
+# 283 columns and ~400 k respondents. CDC renames the yes/no questions between releases
+# (`DRNKANY5` -> `DRNKANY6`), so every name below goes through `_num`, which degrades an
+# unmapped column to NaN instead of crashing the run (and `_write` refuses to blank a dataset).
+BRFSS_COLS = [
+    "_AGE80", "SEXVAR", "SEX", "_BMI5", "SLEPTIM1", "SMOKE100",
+    "DRNKANY6", "DRNKANY5", "_TOTINDA", "EXERANY2",
+    "_MICHD", "CVDCRHD4", "CVDINFR4", "CVDSTRK3",
+    "BPHIGH6", "BPHIGH5", "_RFHYPE6", "DIABETE4",
+]
+
+
+_BRFSS_CACHE = None       # parse the 600 MB XPT once per run, not once per disease
+
+
+def _brfss():
+    """Chunked, column-projected read of the BRFSS combined file (~400 k x 283 cols).
+
+    Returns None when the download is missing, so `prepare_brfss_*` can fall back to their
+    legacy source rather than overwrite a good dataset with nothing. Parsed once and cached:
+    XPT parsing is the slow part of `prepare_real.py` and several diseases share the file.
+    """
+    global _BRFSS_CACHE
+    if _BRFSS_CACHE is not None:
+        return _BRFSS_CACHE
+    paths = sorted(glob.glob(os.path.join(RAW, "LLCP*.XPT")))
+    if not paths:
+        print("[skip] BRFSS not downloaded - see ml/data/README.md (BRFSS) -> legacy source used")
+        return None
+    parts = []
+    for chunk in pd.read_sas(paths[-1], format="xport", chunksize=50_000):
+        parts.append(chunk[[c for c in BRFSS_COLS if c in chunk.columns]])
+    _BRFSS_CACHE = pd.concat(parts, ignore_index=True)
+    return _BRFSS_CACHE
+
+
+def _num(df, *names):
+    """First of `names` present in `df`, as numeric; all-NaN Series when none exist."""
+    for n in names:
+        if n in df.columns:
+            return pd.to_numeric(df[n], errors="coerce")
+    return pd.Series(np.nan, index=df.index)
+
+
+def _brfss_base(df):
+    """The Phase-1 app base features BRFSS actually asks about (7 of the 14).
+
+    Left for `_write` to fill with NaN (BRFSS surveys no family history and no symptoms):
+    `family_diabetes/heart/hypertension/cancer` + the 3 screening symptoms per disease.
+    `exercise_level` is 0/1 — BRFSS only asks whether there was *any* leisure activity in the
+    past 30 days (`_TOTINDA`), which is coarser than the NHANES 0/1/2 cut and the app's 0-4
+    scale; that limitation is recorded in the source note.
+    """
+    out = pd.DataFrame(index=df.index)
+    age = _num(df, "_AGE80", "AGE")
+    out["age"] = age.where((age >= 18) & (age <= 120))          # adults only (BRFSS rule)
+    out["gender"] = _num(df, "SEXVAR", "SEX").map({1: 1.0, 2: 0.0})   # app: 1=Male, 0=Female
+    bmi = _num(df, "_BMI5")                                      # BMI x 100, 9999 = "don't know"
+    out["bmi"] = bmi.where((bmi > 0) & (bmi < 9999)) / 100.0
+    sleep = _num(df, "SLEPTIM1")                                 # 77 = DK, 99 = refused
+    out["sleep_hours"] = sleep.where((sleep >= 1) & (sleep <= 24))
+    out["smoking"] = _num(df, "SMOKE100").map({1: 1.0, 2: 0.0})  # ever smoked 100 cigarettes
+    out["alcohol"] = _num(df, "DRNKANY6", "DRNKANY5").map({1: 1.0, 2: 0.0})
+    out["exercise_level"] = _num(df, "_TOTINDA", "EXERANY2").map({1: 1.0, 2: 0.0})
+    return out
+
+
+def prepare_brfss_heart():
+    """BRFSS coronary heart disease -> Phase-1 `heart` vector (dataset-accuracy TODO #1).
+
+    UCI Cleveland gave 3 usable columns on 303 rows. BRFSS cannot supply `chest_pain` or family
+    history either, but it supplies age/gender/BMI/sleep/physical-activity/smoking/alcohol for
+    ~400 k adults: 3 real predictors -> 7, and 303 -> a nationally-sourced sample.
+    """
+    df = _brfss()
+    if df is None:
+        return _prepare_heart_cleveland()
+    out = _brfss_base(df)
+    # _MICHD = CDC's derived "ever told coronary heart disease OR myocardial infarction"
+    # (1=Yes, 2=No). Fall back to the two raw questions if the derived flag is ever renamed.
+    m = _num(df, "_MICHD")
+    if m.notna().any():
+        lab = m.map({1: 1.0, 2: 0.0})
+    else:
+        chd, mi = _num(df, "CVDCRHD4"), _num(df, "CVDINFR4")
+        lab = pd.Series(np.nan, index=out.index, dtype=float)
+        lab[(chd == 1) | (mi == 1)] = 1.0              # either diagnosis = heart disease
+        lab[(chd == 2) & (mi == 2)] = 0.0              # both explicitly "no"
+    out["target"] = lab
+    _write("heart", out, f"BRFSS {BRFSS_YEAR} (CDC, ~400k US adults): label = _MICHD (ever told "
+                         "coronary heart disease or heart attack); 7 of 14 app columns real - "
+                         "family history and chest-pain/shortness-of-breath/palpitations are not "
+                         "surveyed in BRFSS (NaN); unweighted sample (survey weights unused)")
+
+
+def prepare_brfss_stroke():
+    """BRFSS stroke history -> Phase-2 `stroke` vector (replaces the Kaggle 5 110-row set).
+
+    Also fixes a latent train/inference mismatch in the old mapping: it put the Kaggle columns
+    `hypertension`/`heart_disease` (the respondent's *own* conditions) into `family_hypertension`
+    / `family_heart` (the app asks the user for their *family* history), so the model learned a
+    personal-history effect and then applied it to a family-history flag at inference. BRFSS has
+    no family-history question, so those columns are honestly NaN here instead.
+    """
+    df = _brfss()
+    if df is None:
+        return _prepare_stroke_kaggle()
+    out = _brfss_base(df)
+    out["target"] = _num(df, "CVDSTRK3").map({1: 1.0, 2: 0.0})
+    _write("stroke", out, f"BRFSS {BRFSS_YEAR} (CDC): label = CVDSTRK3 (ever told stroke); "
+                          "7 of 16 app columns real; family history/BP/symptoms not surveyed "
+                          "(NaN) - deliberately, see prepare_brfss_stroke docstring; "
+                          "unweighted sample (survey weights unused)")
 
 
 def main():
     os.makedirs(OUT, exist_ok=True)
     for fn in [prepare_nhanes_diabetes, prepare_nhanes_hypertension, prepare_nhanes_obesity,
                prepare_nhanes_anemia, prepare_metabolic_syndrome, prepare_nhanes_colorectal,
-               prepare_ckd, prepare_liver,
-               prepare_thyroid, prepare_heart, prepare_stroke, prepare_pcos,
+               prepare_nhanes_ckd, prepare_nhanes_liver,
+               prepare_thyroid, prepare_brfss_heart, prepare_brfss_stroke, prepare_pcos,
                prepare_lung_cancer, prepare_sleep_apnea_kaggle, prepare_gad7, prepare_depression]:
         try:
             fn()

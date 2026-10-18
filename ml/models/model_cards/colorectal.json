@@ -1,14 +1,28 @@
 {
   "disease_key": "colorectal",
-  "trained_at": "2026-10-14T19:13:25.059278Z",
-  "dataset": "NHANES 2017-2018 (J) MCQ_J MCQ230A-D, code 16 (colon) / 31 (rectum), age>=40 (app gate). Only 4 of the 9 app features exist in NHANES and there are just 55 cases (1.4%) -> LOW_FEATURE_MODEL + HEAVY_IMBALANCE and a weak AUC, exactly as ML_TRAINING \u00a76 predicts for a dataset this small.",
+  "trained_at": "2026-10-18T14:08:19.888452Z",
+  "dataset": "NHANES 2009-2018 pooled (F+G+H+I+J) - MCQ230A-D, code 16 (colon) / 31 (rectum), age>=40 (app gate). Only 4 of the 9 app features exist in NHANES; 19,201 rows / 215 cases (1.1%) -> LOW_FEATURE_MODEL + HEAVY_IMBALANCE. S18 pooled H+I+J (11,463 rows / 120 cases); this pass added the 2009-2012 cycles F/G. The earlier single-cycle test AUC 0.694 was small-sample luck; judge the pooled score as the honest estimate.",
   "dataset_version": "v1",
-  "n_samples": 3882,
+  "n_samples": 19201,
   "metrics": {
-    "auc_roc": 0.6942202705910278,
-    "macro_f1": 0.5188854489164086,
-    "test_recall": 0.0909,
-    "brier_score": 0.0139
+    "auc_roc": 0.7715964338636002,
+    "pr_auc": 0.029043183842299407,
+    "macro_f1": 0.4288194789928067,
+    "test_recall": 0.7674,
+    "test_precision": 0.0263,
+    "test_specificity": 0.678,
+    "brier_score": 0.011,
+    "brier_baseline": 0.0111,
+    "brier_skill_score": 0.009,
+    "ece": 0.0001,
+    "auc_ci95": [
+      0.7132,
+      0.8236
+    ],
+    "macro_f1_ci95": [
+      0.4199,
+      0.4399
+    ]
   },
   "features": [
     "age",
@@ -21,7 +35,8 @@
     "bowel_change",
     "colorectal_weight_loss"
   ],
-  "threshold": 0.0177,
+  "threshold": 0.0114,
+  "threshold_rule": "max_youden_j&rate>=0.02(precision floor unreachable)",
   "threshold_met": false,
   "flags": [
     "HEAVY_IMBALANCE",

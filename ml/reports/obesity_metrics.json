@@ -19,14 +19,31 @@
     "freq_hunger",
     "hard_lose_weight"
   ],
-  "cv_auc_mean": 0.7272,
-  "cv_auc_std": 0.0244,
-  "test_auc": 0.7218,
-  "test_recall": 0.9444,
-  "test_precision": 0.3881,
-  "test_macro_f1": 0.5362,
+  "cv_auc_mean": 0.7367,
+  "cv_auc_std": 0.0214,
+  "test_auc": 0.7136,
+  "test_pr_auc": 0.4252,
+  "test_recall": 0.9611,
+  "test_precision": 0.3923,
+  "test_specificity": 0.3619,
+  "test_npv": 0.956,
+  "test_macro_f1": 0.5411,
+  "test_positives": 180,
+  "test_negatives": 420,
   "brier_score": 0.1833,
-  "threshold": 0.1271,
+  "brier_baseline": 0.21,
+  "brier_skill_score": 0.1273,
+  "ece": 0.0289,
+  "test_auc_ci95": [
+    0.6713,
+    0.7518
+  ],
+  "test_macro_f1_ci95": [
+    0.5033,
+    0.5783
+  ],
+  "threshold": 0.0988,
+  "threshold_rule": "max_f2",
   "targets": {
     "auc": 0.85,
     "macro_f1": 0.8
@@ -53,5 +70,5 @@
     "smoking": 0.0498,
     "alcohol": 0.02
   },
-  "trained_at": "2026-10-15T13:40:31.727658+00:00"
+  "trained_at": "2026-10-18T15:26:48.206429+00:00"
 }

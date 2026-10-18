@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { submitPrediction, getDiseases, getScreeningQuestions } from '../services/api';
 import { FaCircleExclamation, FaCircleInfo, FaCheck, FaMicroscope, FaSmoking, FaBanSmoking } from 'react-icons/fa6';
+import AssessmentAssistant from '../components/AssessmentAssistant';
 
 const PHQ9_QUESTIONS = [
   'Little interest or pleasure in doing things',
@@ -280,25 +281,60 @@ export default function HealthForm() {
 
   const exercises = ['None', 'Light', 'Moderate', 'Active', 'Very Active'];
 
-  return (
-    <div className="pt-20 pb-12 px-4 max-w-3xl mx-auto">
-      <div className="animate-slide-up">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="font-display text-3xl font-bold text-white mb-2">Health Assessment</h1>
-          <p className="text-gray-400">Fill in your details for a comprehensive AI health analysis</p>
-        </div>
-
-        {error && (
-          <div id="health-error" role="alert" className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-6 text-red-400 text-sm">
-            <FaCircleExclamation size={16} />
-            {error}
+  // PHQ-9 questions ka shared JSX — screeners ke saath columns-flow wale card
+  // mein aur fallback (koi screener visible na ho) dono mein isi se render.
+  const phq9Questions = (
+    <div className="space-y-3">
+      {PHQ9_QUESTIONS.map((q, i) => (
+        <div key={i} className="glass-light p-4">
+          <p className="text-sm text-gray-300 mb-3">
+            <span className="text-primary-300 font-medium">Q{i + 1}.</span> {q}
+          </p>
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={`PHQ-9 question ${i + 1}`}>
+            {PHQ9_LABELS.map((label, val) => (
+              <label
+                key={val}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium cursor-pointer transition-all duration-200 ${
+                  form.phq9[i] === val
+                    ? 'bg-primary-500/20 border border-primary-500/40 text-primary-300'
+                    : 'bg-surface-50 border border-white/10 text-gray-400 hover:border-primary-500/30'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name={`phq9-${i}`}
+                  value={val}
+                  checked={form.phq9[i] === val}
+                  onChange={() => updatePHQ9(i, val)}
+                  className="sr-only"
+                  aria-label={label}
+                />
+                {label}
+              </label>
+            ))}
           </div>
-        )}
+        </div>
+      ))}
+    </div>
+  );
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+  return (
+    <div className="pt-20 pb-12 px-4 max-w-6xl mx-auto">
+      {/* Header */}
+      <div className="text-center mb-8 animate-slide-up">
+        <h1 className="font-display text-3xl font-bold text-white mb-2">Health Assessment</h1>
+        <p className="text-gray-400">Fill in your details for a comprehensive AI health analysis</p>
+      </div>
+
+      <form onSubmit={handleSubmit}>
+        {/* Cards grid: chhote sections 2-up, bade (screenings wala block) full-width.
+            PHQ-9 ab usi ke andar columns-flow card hai (neeche Section 5+6).
+            Submit bar grid ke BAHAR (neeche) hai — aur `animate-slide-up` ka
+            transform grid pe lagta hai, is liye submit bar ko us transform wale
+            ancestor se bahar rakha hai. */}
+        <div className="assessment-grid grid grid-cols-1 lg:grid-cols-2 gap-6 animate-slide-up">
           {/* ── Section: Basic Info ── */}
-          <div className="glass p-6">
+          <div className="glass p-6 assessment-card">
             <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <span className="w-7 h-7 rounded-lg bg-primary-500/20 text-primary-300 flex items-center justify-center text-sm font-bold" aria-hidden="true">1</span>
               Basic Information
@@ -347,7 +383,7 @@ export default function HealthForm() {
           </div>
 
           {/* ── Section: Lifestyle ── */}
-          <div className="glass p-6">
+          <div className="glass p-6 assessment-card">
             <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <span className="w-7 h-7 rounded-lg bg-primary-500/20 text-primary-300 flex items-center justify-center text-sm font-bold">2</span>
               Lifestyle
@@ -430,7 +466,7 @@ export default function HealthForm() {
           </div>
 
           {/* ── Section: Family History ── */}
-          <div className="glass p-6">
+          <div className="glass p-6 assessment-card">
             <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <span className="w-7 h-7 rounded-lg bg-primary-500/20 text-primary-300 flex items-center justify-center text-sm font-bold">3</span>
               Family History
@@ -458,53 +494,10 @@ export default function HealthForm() {
             </div>
           </div>
 
-          {/* ── Section: PHQ-9 ── */}
-          <div className="glass p-6">
-            <h2 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
-              <span className="w-7 h-7 rounded-lg bg-primary-500/20 text-primary-300 flex items-center justify-center text-sm font-bold">4</span>
-              Mental Health Screening (PHQ-9)
-            </h2>
-            <p className="text-sm text-gray-500 mb-4">
-              Over the last 2 weeks, how often have you been bothered by:
-            </p>
-            <div className="space-y-4">
-              {PHQ9_QUESTIONS.map((q, i) => (
-                <div key={i} className="glass-light p-4">
-                  <p className="text-sm text-gray-300 mb-3">
-                    <span className="text-primary-300 font-medium">Q{i + 1}.</span> {q}
-                  </p>
-                  <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={`PHQ-9 question ${i + 1}`}>
-                    {PHQ9_LABELS.map((label, val) => (
-                      <label
-                        key={val}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium cursor-pointer transition-all duration-200 ${
-                          form.phq9[i] === val
-                            ? 'bg-primary-500/20 border border-primary-500/40 text-primary-300'
-                            : 'bg-surface-50 border border-white/10 text-gray-400 hover:border-primary-500/30'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name={`phq9-${i}`}
-                          value={val}
-                          checked={form.phq9[i] === val}
-                          onChange={() => updatePHQ9(i, val)}
-                          className="sr-only"
-                          aria-label={label}
-                        />
-                        {label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* ── Section: Body Measurements & Vitals (WS-4) ── */}
-          <div className="glass p-6">
+          <div className="glass p-6 assessment-card">
             <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <span className="w-7 h-7 rounded-lg bg-primary-500/20 text-primary-300 flex items-center justify-center text-sm font-bold">5</span>
+              <span className="w-7 h-7 rounded-lg bg-primary-500/20 text-primary-300 flex items-center justify-center text-sm font-bold">4</span>
               Body Measurements &amp; Vitals
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -569,21 +562,38 @@ export default function HealthForm() {
             </p>
           </div>
 
-          {/* ── Section: Additional Health Screenings (WS-4, dynamic) ──
-              Hardcode nahi: /diseases → /screenings/{key}/questions se render hota hai.
-              Naya phase sirf backend catalog badlega, yeh code unchanged rahega (08 §3). */}
-          {visibleScreenings.length > 0 && (
-            <div className="glass p-6">
+          {/* ── Section 5+6: Mental Health (PHQ-9) + dynamic screeners (WS-4) ──
+              PHQ-9 ab akela full-width section nahi — wo screeners ke saath
+              masonry columns mein ek card flow karta hai, is liye poora page
+              nahi khaata aur uske bagal doosre cards khali jagah fill karte hain.
+              Fallback: gates (gender/age) ki wajah se koi screener visible na
+              ho toh PHQ-9 wahi purane full-width card mein render hota hai.
+              Hardcode nahi: screeners /diseases → /screenings/{key}/questions
+              se render hote hain (08 §3). */}
+          {visibleScreenings.length > 0 ? (
+            <div className="glass p-6 lg:col-span-2">
               <h2 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
-                <span className="w-7 h-7 rounded-lg bg-primary-500/20 text-primary-300 flex items-center justify-center text-sm font-bold">6</span>
-                Additional Health Screenings
+                <span className="w-7 h-7 rounded-lg bg-primary-500/20 text-primary-300 flex items-center justify-center text-sm font-bold">5</span>
+                Mental Health &amp; Health Screenings
               </h2>
               <p className="text-sm text-gray-500 mb-4">
                 Personalized questions based on your profile — answered only here, shown only to you.
               </p>
-              <div className="space-y-6">
+              {/* Screeners ki height bohot alag hoti hai → CSS columns (masonry-style):
+                  chhote cards lambon ke bagal khali jagah fill kar lete hain, aur
+                  cards `break-inside-avoid` se column ke beech mein toot-te nahi.
+                  Aur sirf 1 card hone pe 2-col nahi. */}
+              <div className={`assessment-grid columns-1 gap-6 ${visibleScreenings.length > 1 ? 'lg:columns-2' : ''}`}>
+                {/* PHQ-9 — pehla screening card (depression) */}
+                <div className="glass-light p-4 assessment-card mb-6 break-inside-avoid">
+                  <h3 className="text-base font-semibold text-white mb-1">Mental Health Screening (PHQ-9)</h3>
+                  <p className="text-xs text-gray-500 mb-3">
+                    Over the last 2 weeks, how often have you been bothered by:
+                  </p>
+                  {phq9Questions}
+                </div>
                 {visibleScreenings.map((cat) => (
-                  <div key={cat.screening_key} className="glass-light p-4">
+                  <div key={cat.screening_key} className="glass-light p-4 assessment-card mb-6 break-inside-avoid">
                     <h3 className="text-sm font-semibold text-primary-300 mb-1">{cat.label}</h3>
                     {cat.instructions && (
                       <p className="text-xs text-gray-500 mb-3">{cat.instructions}</p>
@@ -607,38 +617,75 @@ export default function HealthForm() {
                 ))}
               </div>
             </div>
+          ) : (
+            /* Fallback: koi dynamic screener visible nahi (e.g. gates) → PHQ-9
+               apne purane full-width card mein. */
+            <div className="glass p-6 assessment-card lg:col-span-2">
+              <h2 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+                <span className="w-7 h-7 rounded-lg bg-primary-500/20 text-primary-300 flex items-center justify-center text-sm font-bold">5</span>
+                Mental Health Screening (PHQ-9)
+              </h2>
+              <p className="text-sm text-gray-500 mb-4">
+                Over the last 2 weeks, how often have you been bothered by:
+              </p>
+              {phq9Questions}
+            </div>
           )}
 
           {/* Privacy Notice */}
-          <div className="glass-light p-4 flex items-start gap-3">
+          <div className="glass-light p-4 flex items-start gap-3 lg:col-span-2">
             <FaCircleInfo className="text-primary-300 shrink-0 mt-0.5" size={18} />
             <p className="text-xs text-gray-400">
               <strong className="text-gray-300">Privacy Notice:</strong> Your health data is processed locally through our ML pipeline and stored securely.
               It is never shared with third parties. This tool provides AI-based risk estimates and does <strong className="text-gray-300">not</strong> constitute medical diagnosis.
             </p>
           </div>
+        </div>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={loading}
-            aria-describedby={error ? 'health-error' : undefined}
-            className="btn-primary w-full text-lg py-4 flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {loading ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Running Health Analysis...
-              </>
-            ) : (
-              <span className="inline-flex items-center justify-center gap-2">
-                <FaMicroscope size={18} aria-hidden="true" />
-                Run Health Analysis
-              </span>
+        {/* ── Submit bar (form ke bilkul END mein, normal flow) ──
+            Pehle ye `position: sticky` thi (screen pe chipki rehti thi). Ab ye grid
+            ke neeche aam block ki tarah scroll ke saath aata hai. Error bhi yahin
+            dikhate hain taake action ke saath feedback saath rahe. */}
+        <div className="mt-6">
+          <div className="glass p-3 shadow-2xl">
+            {error && (
+              <div id="health-error" role="alert" className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-3 text-red-400 text-sm">
+                <FaCircleExclamation size={16} className="shrink-0" />
+                {error}
+              </div>
             )}
-          </button>
-        </form>
-      </div>
+            <button
+              type="submit"
+              disabled={loading}
+              aria-describedby={error ? 'health-error' : undefined}
+              className="btn-primary w-full text-lg py-4 flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Running Health Analysis...
+                </>
+              ) : (
+                <span className="inline-flex items-center justify-center gap-2">
+                  <FaMicroscope size={18} aria-hidden="true" />
+                  Run Health Analysis
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+      </form>
+
+      {/* Floating Form Helper — fixed FAB, scroll ke saath ek hi jagah.
+          Backend proxy (/intake/chat) se LLM; API key sirf server .env mein */}
+      <AssessmentAssistant
+        form={form}
+        updateField={updateField}
+        visibleScreenings={visibleScreenings}
+        screeningAnswers={screeningAnswers}
+        setScreeningValue={setScreeningValue}
+        phq9Questions={PHQ9_QUESTIONS}
+      />
     </div>
   );
 }

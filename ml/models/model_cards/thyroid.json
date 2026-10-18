@@ -1,14 +1,28 @@
 {
   "disease_key": "thyroid",
-  "trained_at": "2026-10-14T19:10:11.966560Z",
+  "trained_at": "2026-10-18T14:51:53.904007Z",
   "dataset": "UCI hypothyroid (3163 rows) \u2014 only age/gender app-available; TSH/T3/TT4 labs are not collected by the app. LOW_FEATURE_MODEL.",
   "dataset_version": "v1",
   "n_samples": 3163,
   "metrics": {
-    "auc_roc": 0.5364842454394694,
-    "macro_f1": 0.2928108431464136,
-    "test_recall": 0.6333,
-    "brier_score": 0.045
+    "auc_roc": 0.5462686567164179,
+    "pr_auc": 0.082201078155944,
+    "macro_f1": 0.3902453408822835,
+    "test_recall": 0.5,
+    "test_precision": 0.051,
+    "test_specificity": 0.5373,
+    "brier_score": 0.0449,
+    "brier_baseline": 0.0451,
+    "brier_skill_score": 0.0066,
+    "ece": 0.0023,
+    "auc_ci95": [
+      0.4149,
+      0.6592
+    ],
+    "macro_f1_ci95": [
+      0.362,
+      0.4217
+    ]
   },
   "features": [
     "age",
@@ -19,7 +33,8 @@
     "temperature_issues",
     "hair_skin"
   ],
-  "threshold": 0.0421,
+  "threshold": 0.046,
+  "threshold_rule": "max_youden_j&rate>=0.02(precision floor unreachable)",
   "threshold_met": false,
   "flags": [
     "HEAVY_IMBALANCE",

@@ -1,14 +1,28 @@
 {
   "disease_key": "metabolic_syndrome",
-  "trained_at": "2026-10-14T19:13:06.486537Z",
+  "trained_at": "2026-10-17T17:25:34.701421Z",
   "dataset": "NHANES 2017-2018 (J) \u2014 IDF metabolic syndrome label (>=3 of 5). Label and features share clinical inputs BY DESIGN (documented \u00a75 overlap); a SUSPICIOUS_POSSIBLE_LEAKAGE flag may appear.",
   "dataset_version": "v1",
   "n_samples": 3000,
   "metrics": {
     "auc_roc": 0.8980491220362719,
+    "pr_auc": 0.7901994377187779,
     "macro_f1": 0.7245179063360881,
     "test_recall": 0.9349,
-    "brier_score": 0.1146
+    "test_precision": 0.518,
+    "test_specificity": 0.6589,
+    "brier_score": 0.1146,
+    "brier_baseline": 0.2023,
+    "brier_skill_score": 0.4335,
+    "ece": 0.0409,
+    "auc_ci95": [
+      0.8715,
+      0.9228
+    ],
+    "macro_f1_ci95": [
+      0.6861,
+      0.7602
+    ]
   },
   "features": [
     "age",
@@ -23,6 +37,7 @@
     "frequent_thirst_urination"
   ],
   "threshold": 0.1465,
+  "threshold_rule": "max_f2",
   "threshold_met": false,
   "flags": [
     "LOW_FEATURE_MODEL"

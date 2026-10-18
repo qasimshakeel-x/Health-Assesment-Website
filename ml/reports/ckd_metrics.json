@@ -1,8 +1,8 @@
 {
   "disease": "ckd",
-  "dataset": "UCI Chronic Kidney Disease (400 rows) \u2014 age/bp/dm/htn mapped to app vector; swelling/urination/fatigue symptoms not in UCI (NaN).",
-  "rows": 400,
-  "positive_rate": 0.625,
+  "dataset": "NHANES 2013-2018 (H+I+J, 17,032 rows, 3.8% positive) - label KIQ022 = ever told weak/failing kidneys; age / measured BP (BPX) / diabetes (DIQ010) / high-BP history (BPQ020) / nocturia>=2 (KIQ480) are real app columns; ankle-swelling & fatigue are not collected in NHANES (NaN). Replaces the 400-row UCI CKD set whose AUC 0.955 was inflated.",
+  "rows": 17032,
+  "positive_rate": 0.0381,
   "features": [
     "age",
     "bp_systolic",
@@ -12,33 +12,50 @@
     "urination_changes",
     "ckd_fatigue"
   ],
-  "cv_auc_mean": 0.9359,
-  "cv_auc_std": 0.0298,
-  "test_auc": 0.9547,
-  "test_recall": 0.98,
-  "test_precision": 0.7206,
-  "test_macro_f1": 0.6772,
-  "brier_score": 0.0699,
-  "threshold": 0.1556,
+  "cv_auc_mean": 0.7517,
+  "cv_auc_std": 0.0172,
+  "test_auc": 0.7499,
+  "test_pr_auc": 0.1209,
+  "test_recall": 0.6846,
+  "test_precision": 0.0794,
+  "test_specificity": 0.6851,
+  "test_npv": 0.9821,
+  "test_macro_f1": 0.4747,
+  "test_positives": 130,
+  "test_negatives": 3277,
+  "brier_score": 0.0351,
+  "brier_baseline": 0.0367,
+  "brier_skill_score": 0.0425,
+  "ece": 0.0031,
+  "test_auc_ci95": [
+    0.7053,
+    0.7918
+  ],
+  "test_macro_f1_ci95": [
+    0.4592,
+    0.489
+  ],
+  "threshold": 0.0391,
+  "threshold_rule": "max_youden_j&rate>=0.02(precision floor unreachable)",
   "targets": {
     "auc": 0.85,
     "macro_f1": 0.8
   },
   "status": "BELOW_TARGET",
   "flags": [
-    "SMALL_DATASET",
+    "HEAVY_IMBALANCE",
     "LOW_FEATURE_MODEL"
   ],
   "missing_features": [
     "ankle_swelling",
-    "urination_changes",
     "ckd_fatigue"
   ],
   "top_features_shap": {
-    "hypertension_flag": 1.5317,
-    "diabetes_flag": 0.9498,
-    "bp_systolic": 0.766,
-    "age": 0.352
+    "hypertension_flag": 0.6809,
+    "age": 0.2952,
+    "diabetes_flag": 0.2797,
+    "bp_systolic": 0.1386,
+    "urination_changes": 0.0958
   },
-  "trained_at": "2026-10-14T19:15:55.337999+00:00"
+  "trained_at": "2026-10-18T13:53:38.389739+00:00"
 }

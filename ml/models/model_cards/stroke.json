@@ -1,14 +1,28 @@
 {
   "disease_key": "stroke",
-  "trained_at": "2026-10-14T19:10:32.816853Z",
-  "dataset": "Kaggle stroke prediction (5110 rows, fedesoriano) \u2014 age/gender/bmi/smoking plus hypertension/heart_disease history flags; TIA/speech symptoms NaN.",
+  "trained_at": "2026-10-18T15:51:04.299221Z",
+  "dataset": "CDC BRFSS 2025 (356,158 US adults, 6,000-row seeded stratified cap) - label CVDSTRK3 = ever told stroke (4.6% of the source). 7 of the 16 app columns are real; family history, BP and the TIA/speech/palpitations symptoms are not surveyed (NaN) - deliberately: the previous Kaggle mapping stored the respondent's OWN hypertension/heart_disease in the family_* columns while the app asks the user for FAMILY history, so the model learned a personal-history effect and applied it to a family flag. Legacy fallback: Kaggle fedesoriano (5,110 rows).",
   "dataset_version": "v1",
-  "n_samples": 5110,
+  "n_samples": 6000,
   "metrics": {
-    "auc_roc": 0.8142181069958848,
-    "macro_f1": 0.5057846715328467,
-    "test_recall": 0.82,
-    "brier_score": 0.0433
+    "auc_roc": 0.7109408495434696,
+    "pr_auc": 0.12164687619371391,
+    "macro_f1": 0.46897795483297894,
+    "test_recall": 0.6727,
+    "test_precision": 0.086,
+    "test_specificity": 0.6568,
+    "brier_score": 0.0425,
+    "brier_baseline": 0.0437,
+    "brier_skill_score": 0.0279,
+    "ece": 0.0028,
+    "auc_ci95": [
+      0.6477,
+      0.7781
+    ],
+    "macro_f1_ci95": [
+      0.4454,
+      0.4974
+    ]
   },
   "features": [
     "age",
@@ -28,7 +42,8 @@
     "speech_difficulty",
     "irregular_heartbeat"
   ],
-  "threshold": 0.0439,
+  "threshold": 0.0529,
+  "threshold_rule": "max_youden_j&rate>=0.02(precision floor unreachable)",
   "threshold_met": false,
   "flags": [
     "HEAVY_IMBALANCE",
@@ -36,7 +51,7 @@
   ],
   "known_limitations": [
     "App-aligned projection of a real public dataset (ml/data/README.md) \u2014 not a local clinical sample; revalidate on local data before clinical use",
-    "Columns the source dataset never collected: sleep_hours, exercise_level, alcohol, family_diabetes, family_cancer, bp_systolic, bp_diastolic, tia_symptoms, speech_difficulty, irregular_heartbeat \u2014 the app still asks these but the model cannot use them (LOW_FEATURE_MODEL)",
+    "Columns the source dataset never collected: family_diabetes, family_heart, family_hypertension, family_cancer, bp_systolic, bp_diastolic, tia_symptoms, speech_difficulty, irregular_heartbeat \u2014 the app still asks these but the model cannot use them (LOW_FEATURE_MODEL)",
     "Screening and awareness tool only, not a diagnostic device"
   ]
 }

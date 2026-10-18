@@ -22,11 +22,28 @@
   "cv_auc_mean": 0.8032,
   "cv_auc_std": 0.016,
   "test_auc": 0.8099,
+  "test_pr_auc": 0.6261,
   "test_recall": 0.9668,
   "test_precision": 0.4823,
+  "test_specificity": 0.437,
+  "test_npv": 0.9605,
   "test_macro_f1": 0.6221,
+  "test_positives": 211,
+  "test_negatives": 389,
   "brier_score": 0.1664,
+  "brier_baseline": 0.228,
+  "brier_skill_score": 0.2703,
+  "ece": 0.0293,
+  "test_auc_ci95": [
+    0.7789,
+    0.8418
+  ],
+  "test_macro_f1_ci95": [
+    0.5822,
+    0.6573
+  ],
   "threshold": 0.1117,
+  "threshold_rule": "max_f2",
   "targets": {
     "auc": 0.85,
     "macro_f1": 0.8
@@ -53,5 +70,5 @@
     "smoking": 0.0212,
     "alcohol": 0.0066
   },
-  "trained_at": "2026-10-15T13:36:46.866800+00:00"
+  "trained_at": "2026-10-17T17:24:17.546297+00:00"
 }
