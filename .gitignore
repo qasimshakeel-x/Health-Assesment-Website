@@ -44,4 +44,6 @@ backend/pdfs/
 
 # Markdown docs untracked per user request (2026-10-18) - local only
 *.md
+# ...except the root README.md (user request 2026-10-19)
+!/README.md
 
