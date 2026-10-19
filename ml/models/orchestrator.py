@@ -136,26 +136,8 @@ class MLPipelineOrchestrator:
             "avg_disease_risk": round(float(avg_risk), 2)
         }
 
-    def build_feature_vector(self, data: Dict) -> list:
-        return self._build_feature_vector(data)
-
-    def _build_feature_vector(self, data: Dict) -> list:
-        """Convert profile data dict to feature array."""
-        bmi = data.get("bmi", self._compute_bmi(data["height"], data["weight"]))
-        family = data.get("family_history", [0, 0, 0, 0])
-        return [
-            data["age"], data["gender"], bmi, data["sleep_hours"],
-            data["exercise_level"], int(data["smoking"]), data["alcohol"],
-            family[0], family[1], family[2], family[3]
-        ]
-
     def _compute_bmi(self, height: float, weight: float) -> float:
         return weight / (height / 100.0) ** 2
-
-    def _compute_shap(self, feature_vector: list) -> list:
-        """Legacy single-vector SHAP (diabetes) — production path compute_shap_all() hai."""
-        return self._compute_shap_for("diabetes", self.disease_engine, feature_vector,
-                                      self.disease_engine.feature_names("diabetes"))
 
     def compute_shap_all(self, profile: Dict, extras: Dict, disease_keys: list) -> Dict[str, list]:
         """Per-disease SHAP — sab ML diseases ke apne models + feature vectors se.

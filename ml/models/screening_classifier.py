@@ -45,12 +45,6 @@ class ScreeningClassifier(MLModel):
     def predict_proba(self, X):
         raise NotImplementedError("Rule-based screeners do not use predict_proba")
 
-    def load(self, path=None):
-        self.is_loaded = True
-
-    def save(self, path=None):
-        pass
-
     # ── Public entry: sab active rule-based screeners ──
     def predict_all(self, profile: Dict[str, Any], screening: Dict[str, Dict]) -> Dict[str, Dict]:
         """profile = health form dict (+ derived diabetes_risk etc.), screening = {key: responses}."""

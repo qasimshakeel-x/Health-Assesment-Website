@@ -5,8 +5,7 @@ import numpy as np
 from typing import Dict
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import roc_auc_score, f1_score
+from sklearn.metrics import roc_auc_score
 from imblearn.over_sampling import SMOTE
 from ml.models.base import MLModel
 from ml.models.constants import (ENSEMBLE_WEIGHTS, RISK_CATEGORIES, DISEASE_RISK_FEATURES,
@@ -68,9 +67,9 @@ class DiseaseRiskEngine(MLModel):
         """Train ensemble on feature matrix X and binary labels y.
 
         NOTE: ye single-disease single-X variant hai aur self.models ko estimator-name se
-        populate karta hai (predict_proba() disease-key se expect karta hai) — production path
-        train_all_diseases() hai. RFC: Strategy interface ke liye yahan sirf train()
-        implement karna zaroori tha; inconsistency aage fix kar sakte hain.
+        populate karta hai (predict_proba() disease-key se expect karta hai). Per-disease
+        training ab ml/train.py karta hai; RFC: Strategy interface ke liye yahan sirf
+        train() implement karna zaroori tha.
         """
         smote = SMOTE(random_state=42)
         X_resampled, y_resampled = smote.fit_resample(X, y)
@@ -85,48 +84,6 @@ class DiseaseRiskEngine(MLModel):
             metrics[f"{name}_auc"] = roc_auc_score(y_resampled, y_pred_proba) if len(np.unique(y)) > 1 else 0.0
 
         self.diseases_trained = True
-        return metrics
-
-    def train_all_diseases(self, datasets: Dict[str, tuple]) -> Dict[str, Dict]:
-        """Train separate ensemble for each disease. datasets: {disease: (X, y)}.
-
-        Returns {disease: {auc_roc, macro_f1}} — pehle metrics discard ho jaate the,
-        ab model cards ke liye capture hote hain (09-ML-TRAINING-SPEC §1 step 7-10).
-        NOTE: datasets app-aligned schema mein hote hain (ml/data/real/ + ml/train_config.py),
-        isliye yahan koi padding nahi — X inference feature vector jaisa hi.
-        NOTE (ML_TRAINING.md §7): per-disease training ab ml/train.py karta hai; ye engine
-        method legacy pkl rebuild ke liye rakha hai (koi live caller nahi).
-        """
-        metrics_by_disease: Dict[str, Dict] = {}
-        for disease in self.DISEASES:
-            if disease in datasets:
-                X, y = datasets[disease]
-                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-                metrics_by_disease[disease] = self._train_disease(disease, X_train, y_train, X_test, y_test)
-        return metrics_by_disease
-
-    def _train_disease(self, disease: str, X_train, y_train, X_test, y_test):
-        """Train ensemble for a single disease and evaluate."""
-        smote = SMOTE(random_state=42)
-        X_resampled, y_resampled = smote.fit_resample(X_train, y_train)
-
-        models = {}
-        predictions = []
-
-        for name, model in self._get_ensemble().items():
-            model.fit(X_resampled, y_resampled)
-            models[name] = model
-            proba = model.predict_proba(X_test)[:, 1]
-            predictions.append(ENSEMBLE_WEIGHTS[name] * proba)
-
-        self.models[disease] = models
-
-        # Ensemble probability
-        ensemble_proba = np.sum(predictions, axis=0)
-        metrics = {
-            "auc_roc": roc_auc_score(y_test, ensemble_proba) if len(np.unique(y_test)) > 1 else 0.0,
-            "macro_f1": f1_score(y_test, (ensemble_proba >= 0.5).astype(int), average="macro")
-        }
         return metrics
 
     def predict_proba(self, X: np.ndarray) -> Dict[str, Dict]:
@@ -150,7 +107,7 @@ class DiseaseRiskEngine(MLModel):
         return results
 
     def evaluate(self, X_test: np.ndarray, y_test: np.ndarray) -> Dict[str, float]:
-        return {}  # Handled per-disease in train_all_diseases
+        return {}  # Handled per-disease in ml/train.py
 
     # ── Per-disease inference (WS-7: par-disease screening questions) ──────────────
     def _build_vector(self, disease: str, p: Dict, extras: Dict) -> np.ndarray:

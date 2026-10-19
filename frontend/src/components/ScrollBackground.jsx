@@ -228,13 +228,12 @@ function FloatingOrbs({ scrollProgress }) {
 }
 
 // ── Main Export ──
-export default function ScrollBackground({ enabled = true }) {
+export default function ScrollBackground() {
   const scrollProgress = useRef(0);
   const { theme } = useTheme();
   const sceneBg = theme === 'light' ? '#f4f3ee' : '#0a0f1a';
 
   useEffect(() => {
-    if (!enabled) return;
     const handleScroll = () => {
       const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
       scrollProgress.current = maxScroll > 0 ? window.scrollY / maxScroll : 0;
@@ -242,9 +241,7 @@ export default function ScrollBackground({ enabled = true }) {
     window.addEventListener('scroll', handleScroll, { passive: true });
     handleScroll();
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [enabled]);
-
-  if (!enabled) return null;
+  }, []);
 
   return (
     <div className="three-canvas-container">

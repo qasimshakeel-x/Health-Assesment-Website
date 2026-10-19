@@ -323,7 +323,7 @@ export default function HealthForm() {
       {/* Header */}
       <div className="text-center mb-8 animate-slide-up">
         <h1 className="font-display text-3xl font-bold text-white mb-2">Health Assessment</h1>
-        <p className="text-gray-400">Fill in your details for a comprehensive AI health analysis</p>
+        <p className="text-gray-400">Fill in your details for a comprehensive ML health analysis</p>
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -637,7 +637,7 @@ export default function HealthForm() {
             <FaCircleInfo className="text-primary-300 shrink-0 mt-0.5" size={18} />
             <p className="text-xs text-gray-400">
               <strong className="text-gray-300">Privacy Notice:</strong> Your health data is processed locally through our ML pipeline and stored securely.
-              It is never shared with third parties. This tool provides AI-based risk estimates and does <strong className="text-gray-300">not</strong> constitute medical diagnosis.
+              It is never shared with third parties. This tool provides ML-based risk estimates and does <strong className="text-gray-300">not</strong> constitute medical diagnosis.
             </p>
           </div>
         </div>

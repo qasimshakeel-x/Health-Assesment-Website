@@ -17,11 +17,6 @@ PHASE1_SCHEMAS = {
     "obesity": DISEASE_RISK_FEATURES + ["sugary_diet", "freq_hunger", "hard_lose_weight"],
 }
 
-PHQ9_FEATURES = [
-    "phq1", "phq2", "phq3", "phq4", "phq5",
-    "phq6", "phq7", "phq8", "phq9"
-]
-
 # Depression severity tiers (SDD 5-tier version)
 DEPRESSION_LEVELS = {
     (0, 4): "No Depression",

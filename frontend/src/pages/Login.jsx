@@ -39,7 +39,7 @@ export default function Login() {
             <FaHeart className="text-white" size={32} />
           </div>
           <h1 className="font-display text-3xl font-bold text-white">VitaLens</h1>
-          <p className="text-gray-400 mt-2">AI Health Intelligence Platform</p>
+          <p className="text-gray-400 mt-2">AI & ML Health Intelligence Platform</p>
         </div>
 
         {/* Form Card */}

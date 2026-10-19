@@ -43,7 +43,7 @@ function AppRoutes() {
 
   return (
     <>
-      <ScrollBackground enabled={true} />
+      <ScrollBackground />
       <Navbar />
       <main className={`relative z-10 container mx-auto px-4 py-6 max-w-7xl${isAuthPage ? ' min-h-screen' : ''}`}>
         <Routes>

@@ -84,7 +84,6 @@ export const sendIntakeMessage = (messages, context) =>
 
 // ─── Admin ───
 export const adminListUsers = () => api.get('/admin/users');
-export const adminGetUser = (userId) => api.get(`/admin/users/${userId}`);
 export const adminCreateUser = (data) => api.post('/admin/users', data);
 export const adminUpdateRole = (userId, role) => api.put(`/admin/users/${userId}/role`, { role });
 export const adminDeleteUser = (userId) => api.delete(`/admin/users/${userId}`);
@@ -98,5 +97,3 @@ export const getReportStatus = (reportId) => api.get(`/reports/${reportId}/statu
 export const listReports = (userId) => api.get(`/reports/${userId}/list`);
 export const downloadReport = (reportId) =>
   api.get(`/reports/${reportId}/download`, { responseType: 'blob' });
-
-export default api;

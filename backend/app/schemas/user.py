@@ -1,13 +1,12 @@
 """Pydantic v2 schemas for user and health profile data."""
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Dict, Any
-from datetime import datetime
 
 # Server-side disclaimer — 05-API-SPEC §8: har risk-bearing response ke top level pe chahiye,
 # sirf frontend pe rely nahi karna (12-INTEGRATION §8). Cancer screening (Phase 5) ke liye
 # stricter variant alag constant banega.
 DISCLAIMER = (
-    "This is an AI-estimated health risk assessment, not a medical diagnosis. "
+    "This is an ML-estimated health risk assessment, not a medical diagnosis. "
     "Consult a qualified doctor."
 )
 
@@ -101,54 +100,6 @@ class HealthProfileInput(BaseModel):
     @property
     def bmi(self) -> float:
         return self.weight / (self.height / 100.0) ** 2
-
-
-class DiseaseRisk(BaseModel):
-    risk_percent: float
-    category: str
-
-
-class BiologicalAgeResult(BaseModel):
-    chronological_age: int
-    biological_age: float
-    age_difference: float
-    penalties: list
-    status: str
-
-
-class LongevityResult(BaseModel):
-    score: float
-    components: dict
-    category: str
-    description: str
-
-
-class DepressionResult(BaseModel):
-    severity: str
-    phq9_total: int
-    confidence: float
-    contributing_factors: list
-    disclaimer: str
-    recommendations: list
-    crisis_resources: Optional[str] = None
-
-
-class SHAPFeature(BaseModel):
-    feature: str
-    shap_value: float
-    direction: str
-    abs_value: float
-    plain_language: str
-
-
-class PredictionResponse(BaseModel):
-    id: int
-    disease_risks: dict
-    biological_age: BiologicalAgeResult
-    longevity_score: LongevityResult
-    depression: DepressionResult
-    shap_explanations: list
-    created_at: Optional[datetime] = None
 
 
 class ChatMessage(BaseModel):

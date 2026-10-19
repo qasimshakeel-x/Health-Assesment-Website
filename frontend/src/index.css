@@ -52,7 +52,6 @@
   --scroll-thumb-hover: #66BB6A;
 
   --gauge-ring: rgba(255, 255, 255, 0.06);
-  --scene-bg: #0a0f1a;
 
   /* Assessment cards (HealthForm) — default thora transparent + halka blur
      taake peeche ka 3D bg animation dikhe. Hover pe: SIMPLE WHITE frosted
@@ -116,7 +115,6 @@ html.light {
   --scroll-thumb-hover: #2E7D32;
 
   --gauge-ring: rgba(17, 24, 39, 0.08);
-  --scene-bg: #f4f3ee;
 
   /* Light mode: hover pe bhi wahi — simple WHITE frosted glass (bg thora zyada
      opaque) aur BORDER GREEN. Dark text yahan perfectly readable rehta hai. */
@@ -176,17 +174,6 @@ body {
   border-radius: 12px;
 }
 
-/* Risk gauge animations */
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(46, 125, 50, 0.3); }
-  50% { box-shadow: 0 0 40px rgba(46, 125, 50, 0.6); }
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-}
-
 /* NOTE: `to` mein transform JAAN-BOOJH kar nahi likha. Warna `forwards`
    ki wajah se animation ke baad bhi `transform: translateY(0)` retain reh
    jata hai, aur transform wala koi bhi ancestor `backdrop-filter` ka
@@ -202,12 +189,8 @@ body {
   animation: slideUp 0.6s ease-out forwards;
 }
 
-.animate-float {
-  animation: float 6s ease-in-out infinite;
-}
-
 /* Button styles
-   NOTE: .btn-primary/.btn-secondary/.input-field mein color-utilities
+   NOTE: .btn-primary/.input-field mein color-utilities
    `@apply` se jaan-boojh kar NAHI kiye — kyunki is file mein `html.light`
    custom overrides hain, aur Tailwind ka `@apply` un custom rules ko bhi
    resolve kar leta hai. Natija: `@apply text-white` ki wajah se ek aisa
@@ -216,17 +199,6 @@ body {
 .btn-primary {
   @apply bg-primary-500 hover:bg-primary-600 font-semibold px-6 py-3 rounded-xl transition-all duration-300 shadow-lg hover:shadow-primary-500/25;
   color: #ffffff;
-}
-
-.btn-secondary {
-  @apply font-medium px-5 py-2.5 rounded-xl transition-all duration-300 border;
-  background-color: var(--surface-100);
-  border-color: var(--border-subtle);
-  color: var(--text-strong);
-}
-
-.btn-secondary:hover {
-  background-color: var(--surface-200);
 }
 
 /* Input styles */
@@ -363,8 +335,6 @@ html.light .from-primary-500 .text-white { color: #ffffff; }
 /* --- Backgrounds (white/5, white/10 = hover + surface) --- */
 html.light .bg-white\/5 { background-color: var(--hover-bg); }
 html.light .hover\:bg-white\/5:hover { background-color: var(--hover-bg); }
-html.light .bg-white\/10 { background-color: var(--surface-100); }
-html.light .hover\:bg-white\/10:hover { background-color: var(--surface-100); }
 
 html.light .bg-surface-50 { background-color: var(--surface-50); }
 html.light .bg-surface-50\/95 { background-color: var(--surface-solid); }
@@ -387,7 +357,7 @@ html.light .bg-primary-500\/20 { background-color: var(--accent-tint); }
 html.light .bg-primary-500\/10 { background-color: var(--accent-tint-soft); }
 html.light .bg-gray-900\/60 { background-color: var(--surface-100); }
 
-/* NOTE: .input-field / .btn-secondary / select option ko override ki
+/* NOTE: .input-field / select option ko override ki
    zaroorat nahi — unke base rules ab seedha CSS vars use karte hain,
    is liye wo khud-ba-khud theme ke saath badalte hain. */
 

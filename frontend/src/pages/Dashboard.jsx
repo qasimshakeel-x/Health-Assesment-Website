@@ -338,7 +338,7 @@ export default function Dashboard() {
     <div className="pt-20 pb-12 px-4 max-w-6xl mx-auto">
       <div className="animate-slide-up">
         <h1 className="font-display text-3xl font-bold text-white mb-2">Health Dashboard</h1>
-        <p className="text-gray-400 mb-6">Your AI-powered health analysis results</p>
+        <p className="text-gray-400 mb-6">Your ML-powered health analysis results</p>
 
         {/* High Risk Warning */}
         {hasHighRisk && (
@@ -347,7 +347,7 @@ export default function Dashboard() {
             <div>
               <p className="text-yellow-400 font-medium">Elevated Risk Detected</p>
               <p className="text-sm text-yellow-400/70 mt-1">
-                This is an AI prediction, not a medical diagnosis. Consult a qualified doctor for proper evaluation.
+                This is an ML prediction, not a medical diagnosis. Consult a qualified doctor for proper evaluation.
               </p>
             </div>
           </div>

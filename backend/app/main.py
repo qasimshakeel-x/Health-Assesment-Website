@@ -9,7 +9,7 @@ _project_root = Path(__file__).resolve().parents[2]
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-# Repo-root .env load karo (uvicorn/start_backend.bat se boot hone par bhi GROQ_API_KEY
+# Repo-root .env load karo (uvicorn se boot hone par bhi GROQ_API_KEY
 # mile — diet chat ka LLM isi se chalta hai). Missing python-dotenv pe silently skip.
 try:
     from dotenv import load_dotenv
@@ -47,8 +47,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="AI Longevity Intelligence Platform",
-    description="Full-stack AI-powered health intelligence platform",
+    title="AI & ML Longevity Intelligence Platform",
+    description="AI & ML powered health intelligence platform",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -100,7 +100,7 @@ app.include_router(diseases.screenings_router, prefix="/api/v1/screenings", tags
 
 @app.get("/")
 def root():
-    return {"message": "AI Longevity Intelligence Platform API", "docs": "/docs"}
+    return {"message": "AI & ML Longevity Intelligence Platform API", "docs": "/docs"}
 
 
 @app.get("/health")
